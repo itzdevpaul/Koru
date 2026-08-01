@@ -50,12 +50,16 @@ export default function Upgrade() {
 
       // 2 — Open Squad inline widget
       const publicKey = import.meta.env.VITE_SQUAD_PUBLIC_KEY as string
-      if (!publicKey || !window.squad) {
+      // Squad CDN may expose the constructor as window.squad (lowercase) or window.Squad (uppercase)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const SquadCtor = window.squad ?? (window as any).Squad ?? (window as any).SquadPay
+      console.log('[Koru] Squad env check:', { publicKey: !!publicKey, squadType: typeof SquadCtor, squadValue: SquadCtor })
+      if (!publicKey || !SquadCtor) {
         setError('Payment widget not available. Please refresh and try again.')
         return
       }
 
-      const widget = new window.squad({
+      const widget = new SquadCtor({
         key: publicKey,
         email: user.email,
         amount: 250000, // ₦2,500 in kobo
@@ -90,7 +94,8 @@ export default function Upgrade() {
       })
       widget.setup()
       widget.open()
-    } catch {
+    } catch (err) {
+      console.error('[Koru] handleSubscribe error:', err)
       setError('Something went wrong. Please try again.')
       setInitiating(false)
     }
