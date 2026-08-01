@@ -59,41 +59,58 @@ export default function Upgrade() {
         return
       }
 
-      const widget = new SquadCtor({
-        key: publicKey,
-        email: user.email,
-        amount: 250000, // ₦2,500 in kobo
-        currency_code: 'NGN',
-        transaction_ref: ref,
-        onclose: () => { setInitiating(false) },
-        oncomplete: async (resp) => {
-          const txRef = resp.transaction_ref ?? ref
-          setInitiating(false)
-          setVerifying(true)
-          try {
-            const vRes = await fetch('/api/subscribe/verify', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ ref: txRef, uid: user.uid }),
-            })
-            const vData = await vRes.json()
-            if (vData.verified) {
-              await activateSubscription(user.uid, txRef)
-              await refresh()
-              setSuccess(true)
-              setTimeout(() => navigate('/home'), 2500)
-            } else {
-              setError('Payment could not be verified. Contact support if you were charged.')
+      let widget: { setup: () => void; open: () => void }
+      try {
+        widget = new SquadCtor({
+          key: publicKey,
+          email: user.email,
+          amount: 250000, // ₦2,500 in kobo
+          currency_code: 'NGN',
+          transaction_ref: ref,
+          onclose: () => { setInitiating(false) },
+          oncomplete: async (resp) => {
+            const txRef = resp.transaction_ref ?? ref
+            setInitiating(false)
+            setVerifying(true)
+            try {
+              const vRes = await fetch('/api/subscribe/verify', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ref: txRef, uid: user.uid }),
+              })
+              const vData = await vRes.json()
+              if (vData.verified) {
+                await activateSubscription(user.uid, txRef)
+                await refresh()
+                setSuccess(true)
+                setTimeout(() => navigate('/home'), 2500)
+              } else {
+                setError('Payment could not be verified. Contact support if you were charged.')
+              }
+            } catch {
+              setError('Verification failed. Please try again.')
+            } finally {
+              setVerifying(false)
             }
-          } catch {
-            setError('Verification failed. Please try again.')
-          } finally {
-            setVerifying(false)
-          }
-        },
-      })
-      widget.setup()
-      widget.open()
+          },
+        })
+      } catch (err) {
+        const detail = err && typeof err === 'object' ? JSON.stringify(err) : String(err)
+        console.error('[Koru] Squad constructor failed:', detail)
+        setError('Could not initialise payment. This is likely a domain or key issue — check Squad dashboard.')
+        setInitiating(false)
+        return
+      }
+
+      try {
+        widget.setup()
+        widget.open()
+      } catch (err) {
+        const detail = err && typeof err === 'object' ? JSON.stringify(err) : String(err)
+        console.error('[Koru] Squad setup/open failed:', detail)
+        setError('Payment widget failed to open. Please try again.')
+        setInitiating(false)
+      }
     } catch (err) {
       console.error('[Koru] handleSubscribe error:', err)
       setError('Something went wrong. Please try again.')
