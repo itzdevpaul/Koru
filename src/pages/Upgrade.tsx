@@ -58,14 +58,20 @@ export default function Upgrade() {
         return
       }
 
+      const widgetParams = {
+        key: publicKey,
+        email: user.email,
+        amount: 250000, // ₦2,500 in kobo
+        currency_code: 'NGN',
+        transaction_ref: ref,
+        environment: 'production',
+      }
+      console.log('[Koru] Squad widget params:', JSON.stringify({ ...widgetParams, key: publicKey.slice(0, 10) + '…' }))
+
       let widget: { setup: () => void; open: () => void }
       try {
         widget = new SquadCtor({
-          key: publicKey,
-          email: user.email,
-          amount: 250000, // ₦2,500 in kobo
-          currency_code: 'NGN',
-          transaction_ref: ref,
+          ...widgetParams,
           onclose: () => { setInitiating(false) },
           oncomplete: async (resp) => {
             const txRef = resp.transaction_ref ?? ref
