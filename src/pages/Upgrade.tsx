@@ -61,10 +61,9 @@ export default function Upgrade() {
       const widgetParams = {
         key: publicKey,
         email: user.email,
-        amount: 250000, // ₦2,500 in kobo
+        amount: 250000, // ₦2,500 in kobo — confirmed correct by Squad docs
         currency_code: 'NGN',
         transaction_ref: ref,
-        environment: 'production',
       }
       console.log('[Koru] Squad widget params:', JSON.stringify({ ...widgetParams, key: publicKey.slice(0, 10) + '…' }))
 
