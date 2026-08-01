@@ -1,0 +1,115 @@
+@import 'tailwindcss';
+
+/* ── Theme tokens ── */
+@theme {
+  --font-sans: 'Plus Jakarta Sans', sans-serif;
+  --font-body: 'Inter', sans-serif;
+
+  --color-cream: #FBF9F5;
+  --color-oat: #FDF6E3;
+  --color-forest: #1B3B2B;
+  --color-forest-light: #2a5240;
+  --color-sage: #A2BFA6;
+  --color-sage-light: #C8DCC9;
+  --color-terracotta: #E07A5F;
+  --color-terracotta-light: #F0A090;
+}
+
+/* ── Reset ── */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+/* ── Base ── */
+html {
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  background-color: #FBF9F5;
+  color: #1B3B2B;
+  font-family: 'Inter', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+  transition: background-color 0.25s ease, color 0.25s ease;
+}
+
+/* ── Dark mode ── */
+[data-theme="dark"] body {
+  background-color: #0E1612;
+  color: #E8F5EA;
+}
+
+[data-theme="dark"] ::-webkit-scrollbar-thumb {
+  background: #2a4032;
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #A2BFA6;
+  border-radius: 999px;
+}
+
+/* ── Animations ── */
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-up {
+  animation: fadeUp 0.7s ease forwards;
+}
+
+.delay-100 { animation-delay: 0.1s; opacity: 0; }
+.delay-200 { animation-delay: 0.2s; opacity: 0; }
+.delay-300 { animation-delay: 0.3s; opacity: 0; }
+.delay-400 { animation-delay: 0.4s; opacity: 0; }
+.delay-500 { animation-delay: 0.5s; opacity: 0; }
+
+/* ── Focus-visible ring ── */
+:focus-visible {
+  outline: 2px solid #A2BFA6;
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+/* ── Safe area for notched devices ── */
+.safe-x {
+  padding-left: max(1rem, env(safe-area-inset-left));
+  padding-right: max(1rem, env(safe-area-inset-right));
+}
+
+/* ── Responsive typography scale ── */
+@media (max-width: 360px) {
+  html { font-size: 15px; }
+}
+
+/* ── Tap target minimum ── */
+button,
+a,
+input[type="submit"] {
+  min-height: 44px;
+}
+
+input[type="email"] {
+  min-height: 44px;
+}

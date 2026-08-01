@@ -1,0 +1,10 @@
+{
+  "description": "Empowering teenagers and young adults to navigate life decisions through personalized, science-backed quizzes in a safe, judgment-free environment.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}

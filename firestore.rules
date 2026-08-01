@@ -1,0 +1,51 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Waitlist ─────────────────────────────────────────────────────────────
+    match /waitlist/{docId} {
+      allow create: if
+        request.resource.data.keys().hasAll(['email', 'createdAt', 'referralCode', 'userAgent']) &&
+        request.resource.data.email is string &&
+        request.resource.data.email.matches('^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$') &&
+        request.resource.data.createdAt == request.time &&
+        request.resource.data.referralCode is string &&
+        request.resource.data.referralCode.matches('^[A-Z0-9]{6,12}$') &&
+        request.resource.data.userAgent is string &&
+        request.resource.data.userAgent.size() > 0 &&
+        request.resource.data.userAgent.size() <= 512;
+
+      allow read: if false;
+    }
+
+    // ── User profile ──────────────────────────────────────────────────────────
+    match /users/{uid}/profile/main {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // ── Quiz results ──────────────────────────────────────────────────────────
+    match /users/{uid}/quizResults/{resultId} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+
+      allow create: if request.auth != null
+        && request.auth.uid == uid
+        && request.resource.data.keys().hasAll(['quizId', 'quizTitle', 'resultTypeId', 'resultTitle', 'resultEmoji', 'completedAt'])
+        && request.resource.data.quizId is string
+        && request.resource.data.resultTypeId is string;
+
+      allow update, delete: if false;
+    }
+
+    // ── Subscription ─────────────────────────────────────────────────────────
+    match /users/{uid}/subscription/main {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow write: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // ── Everything else: deny ─────────────────────────────────────────────────
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
