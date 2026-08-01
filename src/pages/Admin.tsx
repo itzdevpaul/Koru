@@ -35,9 +35,11 @@ interface Stats {
 
 export default function Admin() {
   const { c, isDark, toggleTheme } = useTheme()
-  const [authed, setAuthed] = useState(() => sessionStorage.getItem('koru-admin') === '1')
+  const [authed, setAuthed] = useState(() => !!sessionStorage.getItem('koru-admin-key'))
+  const [adminKey, setAdminKey] = useState(() => sessionStorage.getItem('koru-admin-key') ?? '')
   const [pwInput, setPwInput] = useState('')
   const [pwError, setPwError] = useState('')
+  const [pwLoading, setPwLoading] = useState(false)
 
   const [users, setUsers] = useState<AdminUser[]>([])
   const [loading, setLoading] = useState(false)
@@ -46,15 +48,26 @@ export default function Admin() {
   const [filter, setFilter] = useState<'all' | 'pro' | 'free'>('all')
   const [expandedUid, setExpandedUid] = useState<string | null>(null)
 
-  const adminPassword = import.meta.env.VITE_ADMIN_PASSWORD as string
-
-  function handleLogin(e: React.FormEvent) {
+  async function handleLogin(e: React.FormEvent) {
     e.preventDefault()
-    if (pwInput === adminPassword) {
-      sessionStorage.setItem('koru-admin', '1')
-      setAuthed(true)
-    } else {
-      setPwError('Incorrect password.')
+    setPwLoading(true)
+    try {
+      const res = await fetch('/api/admin/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: pwInput }),
+      })
+      if (res.ok) {
+        sessionStorage.setItem('koru-admin-key', pwInput)
+        setAdminKey(pwInput)
+        setAuthed(true)
+      } else {
+        setPwError('Incorrect password.')
+      }
+    } catch {
+      setPwError('Could not reach server. Try again.')
+    } finally {
+      setPwLoading(false)
     }
   }
 
@@ -63,7 +76,7 @@ export default function Admin() {
     setLoading(true)
     setError('')
     fetch('/api/admin/users', {
-      headers: { 'X-Admin-Key': adminPassword },
+      headers: { 'X-Admin-Key': adminKey },
     })
       .then(r => {
         if (!r.ok) throw new Error(`Server error ${r.status}`)
@@ -72,7 +85,7 @@ export default function Admin() {
       .then((data: AdminUser[]) => setUsers(data))
       .catch(err => setError(err.message))
       .finally(() => setLoading(false))
-  }, [authed, adminPassword])
+  }, [authed, adminKey])
 
   const stats = useMemo<Stats>(() => ({
     total: users.length,
@@ -159,7 +172,7 @@ export default function Admin() {
             ← App
           </Link>
           <button
-            onClick={() => { sessionStorage.removeItem('koru-admin'); setAuthed(false) }}
+            onClick={() => { sessionStorage.removeItem('koru-admin-key'); setAdminKey(''); setAuthed(false) }}
             className="text-xs font-medium transition-opacity hover:opacity-60"
             style={{ fontFamily: I, color: c.muted }}
           >

@@ -202,6 +202,16 @@ app.get('/api/admin/users', async (req, res) => {
   }
 })
 
+// ── Admin: verify password (never exposes the secret to the client) ───────────
+app.post('/api/admin/login', (req, res) => {
+  const { password } = req.body as { password?: string }
+  const adminKey = process.env.ADMIN_PASSWORD
+  if (!adminKey || !password || password !== adminKey) {
+    res.status(401).json({ error: 'Unauthorized' }); return
+  }
+  res.json({ ok: true })
+})
+
 app.get('/api/health', (_req, res) => res.json({ status: 'ok' }))
 
 app.listen(PORT, () => console.log(`[Koru API] Running on port ${PORT}`))

@@ -13,7 +13,6 @@ const firebaseDefines = [
   'VITE_FIREBASE_STORAGE_BUCKET',
   'VITE_FIREBASE_MESSAGING_SENDER_ID',
   'VITE_FIREBASE_APP_ID',
-  'VITE_ADMIN_PASSWORD',
   'VITE_SQUAD_PUBLIC_KEY',
 ].reduce<Record<string, string>>((acc, key) => {
   acc[`import.meta.env.${key}`] = JSON.stringify(process.env[key] ?? '')

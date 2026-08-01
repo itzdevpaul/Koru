@@ -1,9 +1,24 @@
 rules_version = '2';
 
+// Firestore security rules for Koru.
+//
+// Coverage:
+//   /waitlist/{docId}                    — public create (validated), no read
+//   /users/{uid}/profile/main            — authenticated owner only
+//   /users/{uid}/quizResults/{resultId}  — authenticated owner: read + validated create; no update/delete
+//   /users/{uid}/subscription/main       — authenticated owner only
+//   everything else                      — deny all
+//
+// "Owner" means: request.auth != null && request.auth.uid == uid
+// Admin reads (e.g. the /api/admin/users endpoint) use Firebase Admin SDK server-side
+// and bypass these rules entirely — no client-side admin access to other users' data.
+
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // ── Waitlist ─────────────────────────────────────────────────────────────
+    // ── Waitlist ──────────────────────────────────────────────────────────────
+    // Anyone may submit an email to the waitlist (create only).
+    // Fields are strictly validated; reads are blocked (use Admin SDK server-side).
     match /waitlist/{docId} {
       allow create: if
         request.resource.data.keys().hasAll(['email', 'createdAt', 'referralCode', 'userAgent']) &&
@@ -20,11 +35,16 @@ service cloud.firestore {
     }
 
     // ── User profile ──────────────────────────────────────────────────────────
+    // Stored at /users/{uid}/profile/main (single document per user).
+    // Only the owning authenticated user may read or write their own profile.
     match /users/{uid}/profile/main {
       allow read, write: if request.auth != null && request.auth.uid == uid;
     }
 
     // ── Quiz results ──────────────────────────────────────────────────────────
+    // Each quiz result is an immutable record created once.
+    // Owners may read their results; they may create new ones (with required fields);
+    // update and delete are permanently blocked to preserve history.
     match /users/{uid}/quizResults/{resultId} {
       allow read: if request.auth != null && request.auth.uid == uid;
 
@@ -37,13 +57,18 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
-    // ── Subscription ─────────────────────────────────────────────────────────
+    // ── Subscription ──────────────────────────────────────────────────────────
+    // Stored at /users/{uid}/subscription/main (single document per user).
+    // Only the owning authenticated user may read or write their subscription status.
+    // Subscription is also written server-side via Admin SDK after payment verification.
     match /users/{uid}/subscription/main {
       allow read: if request.auth != null && request.auth.uid == uid;
       allow write: if request.auth != null && request.auth.uid == uid;
     }
 
     // ── Everything else: deny ─────────────────────────────────────────────────
+    // Catch-all explicit deny. Any collection not listed above is inaccessible
+    // to all clients, regardless of auth state.
     match /{document=**} {
       allow read, write: if false;
     }
