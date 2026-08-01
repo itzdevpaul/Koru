@@ -53,7 +53,6 @@ export default function Upgrade() {
       // Squad CDN may expose the constructor as window.squad (lowercase) or window.Squad (uppercase)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const SquadCtor = window.squad ?? (window as any).Squad ?? (window as any).SquadPay
-      console.log('[Koru] Squad env check:', { publicKey: !!publicKey, squadType: typeof SquadCtor, squadValue: SquadCtor })
       if (!publicKey || !SquadCtor) {
         setError('Payment widget not available. Please refresh and try again.')
         return
