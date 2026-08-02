@@ -88,7 +88,7 @@ app.post('/api/send-welcome', async (req, res) => {
 
 function squadBase() {
   return process.env.SQUAD_ENV === 'prod'
-    ? 'https://api.squad.africa'
+    ? 'https://api-d.squadco.com'
     : 'https://sandbox-api-d.squadco.com'
 }
 
@@ -135,7 +135,9 @@ app.post('/api/subscribe/initiate', async (req, res) => {
       data?.data?.checkout_url ??
       (isProd ? `https://pay.squadco.com/${ref}` : `https://sandbox-pay.squadco.com/${ref}`)
 
-    if (!data?.success) {
+    // Squad sandbox returns { success: true }, prod returns { status: 200 }
+    const ok = data?.success === true || data?.status === 200
+    if (!ok) {
       console.error('[Koru] Squad initiate failed:', JSON.stringify(data))
       res.status(502).json({ error: data?.message ?? 'Could not create payment session' })
       return
