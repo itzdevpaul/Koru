@@ -14,6 +14,7 @@ import Home from './pages/Home'
 import Quiz from './pages/Quiz'
 import Profile from './pages/Profile'
 import Upgrade from './pages/Upgrade'
+import PaymentReturn from './pages/PaymentReturn'
 import PrivacyPolicy from './pages/PrivacyPolicy'
 import TermsOfService from './pages/TermsOfService'
 import Admin from './pages/Admin'
@@ -41,6 +42,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
             <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
 
             <Route path="/upgrade" element={<ProtectedRoute><Upgrade /></ProtectedRoute>} />
+            <Route path="/payment/return" element={<ProtectedRoute><PaymentReturn /></ProtectedRoute>} />
             <Route path="/admin" element={<Admin />} />
 
             {/* Fallback */}

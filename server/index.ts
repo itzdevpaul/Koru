@@ -94,11 +94,54 @@ function squadBase() {
 
 app.post('/api/subscribe/initiate', async (req, res) => {
   try {
-    const { uid } = req.body as { uid: string }
-    if (!uid) { res.status(400).json({ error: 'uid required' }); return }
-    // Generate a unique transaction ref — the inline widget uses this directly
+    const { uid, email, origin } = req.body as { uid: string; email: string; origin?: string }
+    if (!uid || !email) { res.status(400).json({ error: 'uid and email required' }); return }
+
+    const key = process.env.SQUAD_SECRET_KEY
+    if (!key) { res.status(500).json({ error: 'SQUAD_SECRET_KEY not configured' }); return }
+
     const ref = `koru_sub_${uid}_${Date.now()}`
-    res.json({ ref })
+
+    // Build callback URL — trust origin only for known safe patterns
+    const safeOrigin =
+      origin &&
+      (origin === 'https://koru.com.ng' || /^https:\/\/[\w-]+(\.[\w-]+)*\.replit\.dev$/.test(origin))
+        ? origin
+        : (process.env.APP_URL ?? 'https://koru.com.ng')
+    const callbackUrl = `${safeOrigin}/payment/return`
+
+    const squadRes = await fetch(`${squadBase()}/transaction/initiate`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${key}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        email,
+        amount: 250000, // ₦2,500 in kobo
+        currency: 'NGN',
+        initiate_type: 'inline', // required for Squad to return checkout_url
+        transaction_ref: ref,
+        callback_url: callbackUrl,
+        pass_charge: false,
+      }),
+    })
+
+    const data = await squadRes.json()
+
+    // Squad returns checkout_url in data.data; if absent, construct it from the ref
+    const isProd = process.env.SQUAD_ENV === 'prod'
+    const checkoutUrl: string =
+      data?.data?.checkout_url ??
+      (isProd ? `https://pay.squadco.com/${ref}` : `https://sandbox-pay.squadco.com/${ref}`)
+
+    if (!data?.success) {
+      console.error('[Koru] Squad initiate failed:', JSON.stringify(data))
+      res.status(502).json({ error: data?.message ?? 'Could not create payment session' })
+      return
+    }
+
+    res.json({ checkout_url: checkoutUrl, ref })
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unknown error'
     console.error('[Koru] /api/subscribe/initiate error:', msg)

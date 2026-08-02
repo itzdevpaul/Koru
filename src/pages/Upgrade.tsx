@@ -1,23 +1,8 @@
 import { useState } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
 import { useSubscription } from '../context/SubscriptionContext'
-import { activateSubscription } from '../firebase'
-
-declare global {
-  interface Window {
-    squad: new (config: {
-      key: string
-      email: string
-      amount: number
-      currency_code: string
-      transaction_ref: string
-      onclose?: () => void
-      oncomplete?: (resp: { transaction_ref: string; [k: string]: unknown }) => void
-    }) => { setup: () => void; open: () => void }
-  }
-}
 
 const F = "'Plus Jakarta Sans', sans-serif"
 const I = "'Inter', sans-serif"
@@ -25,13 +10,10 @@ const I = "'Inter', sans-serif"
 export default function Upgrade() {
   const { user } = useAuth()
   const { c } = useTheme()
-  const { isPro, isExpired, daysLeft, refresh } = useSubscription()
-  const navigate = useNavigate()
+  const { isPro, isExpired, daysLeft } = useSubscription()
 
   const [initiating, setInitiating] = useState(false)
-  const [verifying, setVerifying] = useState(false)
   const [error, setError] = useState('')
-  const [success, setSuccess] = useState(false)
 
   async function handleSubscribe() {
     if (!user?.email) return
@@ -39,106 +21,26 @@ export default function Upgrade() {
     setError('')
 
     try {
-      // 1 — Get a transaction ref from the server
       const res = await fetch('/api/subscribe/initiate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ uid: user.uid }),
+        body: JSON.stringify({ uid: user.uid, email: user.email, origin: window.location.origin }),
       })
-      const { ref, error: initErr } = await res.json()
-      if (initErr || !ref) { setError(initErr ?? 'Could not start payment.'); return }
-
-      // 2 — Open Squad inline widget
-      const publicKey = import.meta.env.VITE_SQUAD_PUBLIC_KEY as string
-      // Squad CDN may expose the constructor as window.squad (lowercase) or window.Squad (uppercase)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const SquadCtor = window.squad ?? (window as any).Squad ?? (window as any).SquadPay
-      if (!publicKey || !SquadCtor) {
-        setError('Payment widget not available. Please refresh and try again.')
-        return
-      }
-
-      const widgetParams = {
-        key: publicKey,
-        email: user.email,
-        amount: 250000, // ₦2,500 in kobo — confirmed correct by Squad docs
-        currency_code: 'NGN',
-        transaction_ref: ref,
-      }
-      console.log('[Koru] Squad widget params:', JSON.stringify({ ...widgetParams, key: publicKey.slice(0, 10) + '…' }))
-
-      let widget: { setup: () => void; open: () => void }
-      try {
-        widget = new SquadCtor({
-          ...widgetParams,
-          onclose: () => { setInitiating(false) },
-          oncomplete: async (resp) => {
-            const txRef = resp.transaction_ref ?? ref
-            setInitiating(false)
-            setVerifying(true)
-            try {
-              const vRes = await fetch('/api/subscribe/verify', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ref: txRef, uid: user.uid }),
-              })
-              const vData = await vRes.json()
-              if (vData.verified) {
-                await activateSubscription(user.uid, txRef)
-                await refresh()
-                setSuccess(true)
-                setTimeout(() => navigate('/home'), 2500)
-              } else {
-                setError('Payment could not be verified. Contact support if you were charged.')
-              }
-            } catch {
-              setError('Verification failed. Please try again.')
-            } finally {
-              setVerifying(false)
-            }
-          },
-        })
-      } catch (err) {
-        const detail = err && typeof err === 'object' ? JSON.stringify(err) : String(err)
-        console.error('[Koru] Squad constructor failed:', detail)
-        setError('Could not initialise payment. This is likely a domain or key issue — check Squad dashboard.')
+      const data = await res.json()
+      if (!res.ok || !data.checkout_url) {
+        setError(data.error ?? 'Could not start payment. Please try again.')
         setInitiating(false)
         return
       }
-
-      try {
-        widget.setup()
-        widget.open()
-      } catch (err) {
-        const detail = err && typeof err === 'object' ? JSON.stringify(err) : String(err)
-        console.error('[Koru] Squad setup/open failed:', detail)
-        setError('Payment widget failed to open. Please try again.')
-        setInitiating(false)
-      }
-    } catch (err) {
-      console.error('[Koru] handleSubscribe error:', err)
+      // Store ref in sessionStorage so PaymentReturn can verify even if URL params differ
+      sessionStorage.setItem('koru-payment-ref', data.ref)
+      sessionStorage.setItem('koru-payment-uid', user.uid)
+      // Redirect to Squad-hosted checkout — works from any domain, no CDN widget needed
+      window.location.href = data.checkout_url
+    } catch {
       setError('Something went wrong. Please try again.')
       setInitiating(false)
     }
-  }
-
-  if (verifying) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center gap-4" style={{ background: c.bg }}>
-        <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl animate-pulse" style={{ background: c.surface }}>🔄</div>
-        <p className="text-sm font-medium" style={{ fontFamily: I, color: c.muted }}>Verifying your payment…</p>
-      </div>
-    )
-  }
-
-  if (success) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center gap-4" style={{ background: c.bg }}>
-        <div className="w-16 h-16 rounded-3xl flex items-center justify-center text-3xl" style={{ background: 'rgba(162,191,166,0.25)' }}>✅</div>
-        <h1 className="text-2xl font-bold" style={{ fontFamily: F, color: c.forest }}>You're all set!</h1>
-        <p className="text-sm" style={{ fontFamily: I, color: c.muted }}>Redirecting you to the dashboard…</p>
-      </div>
-    )
   }
 
   return (
