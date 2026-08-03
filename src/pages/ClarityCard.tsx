@@ -112,14 +112,14 @@ export default function ClarityCardPage() {
   const moodNote = m.moodDelta >= 20
     ? `A ${m.moodDelta}% lift in emotional grounding — you're showing up for yourself consistently.`
     : m.moodDelta >= 0
-    ? 'Steady and growing — your emotional grounding improved this month.'
-    : 'A tough month, but you kept checking in. That's the real work.'
+    ? "Steady and growing — your emotional grounding improved this month."
+    : "A tough month, but you kept checking in. That's the real work."
 
   const energyNote = m.energyDelta >= 20
     ? `Your mental sharpness increased by ${m.energyDelta}% — clearer head, sharper decisions.`
     : m.energyDelta >= 0
-    ? 'Energy stable and building — your focus is clearer than when you started.'
-    : 'Energy dipped this month. Your body was signalling something. Rest is growth too.'
+    ? "Energy stable and building — your focus is clearer than when you started."
+    : "Energy dipped this month. Your body was signalling something. Rest is growth too."
 
   return (
     <div className="min-h-screen" style={{ background: c.bg }}>
