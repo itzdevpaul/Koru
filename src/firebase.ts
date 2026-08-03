@@ -12,6 +12,8 @@ import {
   serverTimestamp,
   Timestamp,
   addDoc,
+  where,
+  documentId,
 } from 'firebase/firestore'
 import {
   getAuth,
@@ -126,9 +128,10 @@ export interface UserProfile {
   ageRange: string
   onboardingComplete: boolean
   streak?: number
-  lastActive?: string       // ISO date string YYYY-MM-DD
+  lastActive?: string          // ISO date string YYYY-MM-DD
   emailOptIn?: boolean
-  lastReminderSent?: string // ISO date string YYYY-MM-DD
+  lastReminderSent?: string    // ISO date string YYYY-MM-DD
+  lastClarityCardSeen?: string // ISO month string YYYY-MM
 }
 
 export async function saveUserProfile(uid: string, data: UserProfile): Promise<void> {
@@ -347,6 +350,103 @@ export async function getTodayCheckIn(uid: string): Promise<CheckIn | null> {
   const snap = await getDoc(doc(db, 'users', uid, 'checkins', todayISO()))
   if (!snap.exists()) return null
   return snap.data() as CheckIn
+}
+
+// ── Clarity Card (month-end transformation) ──────────────────────────────────
+
+const MOOD_SCORES: Record<MoodKey, number> = {
+  rough: 1, low: 2, okay: 3, good: 4, thriving: 5,
+}
+
+function clarityLabel(combined: number): string {
+  // combined = mood(1-5) + energy(1-5) = 2–10
+  if (combined < 4)  return 'Overwhelmed & Guessing'
+  if (combined < 6)  return 'Unsettled & Searching'
+  if (combined < 7)  return 'Finding Your Footing'
+  if (combined < 9)  return 'Grounded & Direct'
+  return 'Thriving & Clear'
+}
+
+export interface ClarityMetrics {
+  monthName: string
+  moodDelta: number      // % change (can be negative)
+  energyDelta: number    // % change
+  moodStart: number      // avg mood first period (1-5)
+  moodEnd: number        // avg mood recent period (1-5)
+  energyStart: number
+  energyEnd: number
+  overallStart: string   // shift label
+  overallEnd: string
+  checkInCount: number
+  hasEnoughData: boolean // requires ≥7 check-ins
+}
+
+export async function getClarityMetrics(uid: string): Promise<ClarityMetrics> {
+  const monthName = new Date().toLocaleString('en', { month: 'long' })
+
+  // Query check-ins from last 30 days using doc-ID range (YYYY-MM-DD strings sort correctly)
+  const thirtyDaysAgo = new Date()
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+  const startDate = thirtyDaysAgo.toISOString().split('T')[0]
+  const endDate = todayISO()
+
+  const q = query(
+    collection(db, 'users', uid, 'checkins'),
+    where(documentId(), '>=', startDate),
+    where(documentId(), '<=', endDate),
+  )
+  const snap = await withTimeout(getDocs(q), 10_000)
+
+  // Sort by doc ID (date) ascending
+  const checkIns = snap.docs
+    .sort((a, b) => a.id.localeCompare(b.id))
+    .map(d => d.data() as CheckIn)
+
+  const checkInCount = checkIns.length
+  const hasEnoughData = checkInCount >= 7
+
+  if (!hasEnoughData) {
+    return {
+      monthName, moodDelta: 0, energyDelta: 0,
+      moodStart: 0, moodEnd: 0, energyStart: 0, energyEnd: 0,
+      overallStart: 'Unsettled & Searching', overallEnd: 'Finding Your Footing',
+      checkInCount, hasEnoughData: false,
+    }
+  }
+
+  const first = checkIns.slice(0, 7)
+  const last  = checkIns.slice(-7)
+
+  const avgMood   = (arr: CheckIn[]) => arr.reduce((s, c) => s + MOOD_SCORES[c.mood], 0) / arr.length
+  const avgEnergy = (arr: CheckIn[]) => arr.reduce((s, c) => s + c.energy, 0) / arr.length
+  const pct = (start: number, end: number) =>
+    start > 0 ? Math.round(((end - start) / start) * 100) : 0
+
+  const moodStart   = avgMood(first)
+  const moodEnd     = avgMood(last)
+  const energyStart = avgEnergy(first)
+  const energyEnd   = avgEnergy(last)
+
+  return {
+    monthName,
+    moodDelta:    pct(moodStart, moodEnd),
+    energyDelta:  pct(energyStart, energyEnd),
+    moodStart, moodEnd, energyStart, energyEnd,
+    overallStart: clarityLabel(moodStart + energyStart),
+    overallEnd:   clarityLabel(moodEnd + energyEnd),
+    checkInCount,
+    hasEnoughData: true,
+  }
+}
+
+export async function markClarityCardSeen(uid: string): Promise<void> {
+  const month = new Date().toISOString().slice(0, 7) // YYYY-MM
+  try {
+    await updateDoc(doc(db, 'users', uid, 'profile', 'main'), {
+      lastClarityCardSeen: month,
+      updatedAt: serverTimestamp(),
+    })
+  } catch { /* non-critical */ }
 }
 
 // ── Waitlist (legacy) ───────────────────────────────────────────────────────

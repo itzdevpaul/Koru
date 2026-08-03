@@ -19,6 +19,7 @@ import PaymentReturn from './pages/PaymentReturn'
 import PrivacyPolicy from './pages/PrivacyPolicy'
 import TermsOfService from './pages/TermsOfService'
 import Admin from './pages/Admin'
+import ClarityCard from './pages/ClarityCard'
 import './index.css'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
@@ -45,6 +46,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
 
             <Route path="/upgrade" element={<ProtectedRoute><Upgrade /></ProtectedRoute>} />
             <Route path="/payment/return" element={<ProtectedRoute><PaymentReturn /></ProtectedRoute>} />
+            <Route path="/clarity-card" element={<ProtectedRoute><ClarityCard /></ProtectedRoute>} />
             <Route path="/admin" element={<Admin />} />
 
             {/* Fallback */}

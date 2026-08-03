@@ -21,6 +21,14 @@ export default function Home() {
   const [streak, setStreak] = useState(0)
   const [expiryDismissed, setExpiryDismissed] = useState(false)
 
+  // ── Clarity Card trigger ──
+  const currentMonth = new Date().toISOString().slice(0, 7)
+  const dismissedMonth = typeof window !== 'undefined' ? localStorage.getItem('koru-clarity-dismissed') : null
+  const accountAgeMs = user?.metadata?.creationTime ? Date.now() - new Date(user.metadata.creationTime).getTime() : 0
+  const accountAge30Plus = accountAgeMs >= 30 * 24 * 60 * 60 * 1000
+  const [clarityDismissed, setClarityDismissed] = useState(dismissedMonth === currentMonth)
+  const showClarityBanner = accountAge30Plus && !clarityDismissed
+
   // ── Check-in state ──
   const todayPrompt = getTodayPrompt()
   const [todayCheckIn, setTodayCheckIn] = useState<CheckIn | null>(null)
@@ -233,6 +241,45 @@ export default function Home() {
             Koru is your space to think clearly, know yourself better, and navigate what comes next.
           </p>
         </div>
+
+        {/* ── Clarity Card banner (30-day milestone) ── */}
+        {showClarityBanner && (
+          <div
+            className="flex items-start gap-4 px-5 py-4 rounded-2xl mb-8"
+            style={{
+              background: 'linear-gradient(135deg, rgba(27,59,43,0.07) 0%, rgba(162,191,166,0.12) 100%)',
+              border: `1.5px solid rgba(162,191,166,0.4)`,
+            }}
+          >
+            <div className="text-2xl flex-shrink-0 mt-0.5">🌿</div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-bold mb-0.5" style={{ fontFamily: F, color: c.forest }}>
+                Your 30-Day Snapshot is ready
+              </p>
+              <p className="text-xs leading-relaxed mb-3" style={{ fontFamily: I, color: c.body }}>
+                See how your mood, energy, and clarity have shifted since you started — and share it.
+              </p>
+              <Link
+                to="/clarity-card"
+                className="inline-block text-xs font-bold py-2 px-4 rounded-xl text-white transition-opacity hover:opacity-80"
+                style={{ fontFamily: F, background: '#1B3B2B' }}
+              >
+                View my Clarity Card →
+              </Link>
+            </div>
+            <button
+              onClick={() => {
+                localStorage.setItem('koru-clarity-dismissed', currentMonth)
+                setClarityDismissed(true)
+              }}
+              className="flex-shrink-0 transition-opacity hover:opacity-40 mt-0.5"
+              style={{ color: c.muted, fontSize: 18, lineHeight: 1 }}
+              aria-label="Dismiss"
+            >
+              ×
+            </button>
+          </div>
+        )}
 
         {/* ── Daily check-in ── */}
         {!loadingCheckIn && (
