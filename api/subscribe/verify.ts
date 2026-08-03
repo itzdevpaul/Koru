@@ -8,7 +8,7 @@ function cors(res: VercelResponse) {
 
 function squadBase() {
   return process.env.SQUAD_ENV === 'prod'
-    ? 'https://api.squad.africa'
+    ? 'https://api-d.squadco.com'
     : 'https://sandbox-api-d.squadco.com'
 }
 
@@ -25,7 +25,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!key) { res.status(500).json({ error: 'SQUAD_SECRET_KEY not configured' }); return }
 
     const response = await fetch(`${squadBase()}/transaction/verify/${ref}`, {
-      headers: { 'Authorization': `Bearer ${key}` },
+      headers: { Authorization: `Bearer ${key}` },
     })
     const data = await response.json()
 
@@ -36,6 +36,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     res.json({ verified, raw: data })
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unknown error'
+    console.error('[Koru] /api/subscribe/verify error:', msg)
     res.status(500).json({ error: msg })
   }
 }
