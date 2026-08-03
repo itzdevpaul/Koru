@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
 import { useSubscription } from '../context/SubscriptionContext'
-import { logOut, getQuizResults, updateStreak, getUserProfile, updateUserProfile, sendReminderEmail, type SavedQuizResult } from '../firebase'
+import { logOut, getQuizResults, updateStreak, getUserProfile, updateUserProfile, sendReminderEmail, saveCheckIn, getTodayCheckIn, getTodayPrompt, MOOD_OPTIONS, type SavedQuizResult, type CheckIn, type MoodKey } from '../firebase'
 import { quizzes, insightCombinations } from '../data/quizzes'
 
 const F = "'Plus Jakarta Sans', sans-serif"
@@ -21,6 +21,16 @@ export default function Home() {
   const [streak, setStreak] = useState(0)
   const [expiryDismissed, setExpiryDismissed] = useState(false)
 
+  // ── Check-in state ──
+  const todayPrompt = getTodayPrompt()
+  const [todayCheckIn, setTodayCheckIn] = useState<CheckIn | null>(null)
+  const [loadingCheckIn, setLoadingCheckIn] = useState(true)
+  const [editingCheckIn, setEditingCheckIn] = useState(false)
+  const [checkInMood, setCheckInMood] = useState<MoodKey | null>(null)
+  const [checkInEnergy, setCheckInEnergy] = useState(0)
+  const [checkInReflection, setCheckInReflection] = useState('')
+  const [checkInSaving, setCheckInSaving] = useState(false)
+
   const firstName = user?.displayName?.split(' ')[0] ?? 'there'
 
   useEffect(() => {
@@ -29,6 +39,9 @@ export default function Home() {
       .then(setResults)
       .finally(() => setLoadingResults(false))
     updateStreak(user.uid).then(setStreak)
+    getTodayCheckIn(user.uid)
+      .then(setTodayCheckIn)
+      .finally(() => setLoadingCheckIn(false))
   }, [user])
 
   // ── Weekly reminder: fire once on mount if opted in and 7+ days since last send ──
@@ -54,6 +67,27 @@ export default function Home() {
     setSigningOut(true)
     await logOut()
     navigate('/signin')
+  }
+
+  async function handleSaveCheckIn() {
+    if (!user || !checkInMood || checkInEnergy === 0) return
+    setCheckInSaving(true)
+    await saveCheckIn(user.uid, {
+      mood: checkInMood,
+      energy: checkInEnergy,
+      reflection: checkInReflection.trim(),
+      prompt: todayPrompt,
+    })
+    setTodayCheckIn({ mood: checkInMood, energy: checkInEnergy, reflection: checkInReflection.trim(), prompt: todayPrompt })
+    setEditingCheckIn(false)
+    setCheckInSaving(false)
+  }
+
+  function startEditCheckIn(existing?: CheckIn) {
+    setCheckInMood(existing?.mood ?? null)
+    setCheckInEnergy(existing?.energy ?? 0)
+    setCheckInReflection(existing?.reflection ?? '')
+    setEditingCheckIn(true)
   }
 
   const completedIds = new Set(results.map(r => r.quizId))
@@ -199,6 +233,221 @@ export default function Home() {
             Koru is your space to think clearly, know yourself better, and navigate what comes next.
           </p>
         </div>
+
+        {/* ── Daily check-in ── */}
+        {!loadingCheckIn && (
+          <section className="mb-10">
+            {todayCheckIn && !editingCheckIn ? (
+              // ── Completed state ──
+              <div
+                className="rounded-3xl p-6"
+                style={{ background: c.card, border: `1px solid ${c.cardBorder}` }}
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <p className="text-xs font-semibold uppercase tracking-widest" style={{ fontFamily: I, color: c.sage }}>
+                    Today's check-in ✓
+                  </p>
+                  <button
+                    onClick={() => startEditCheckIn(todayCheckIn)}
+                    className="text-xs font-semibold transition-opacity hover:opacity-60"
+                    style={{ fontFamily: I, color: c.muted }}
+                  >
+                    Edit
+                  </button>
+                </div>
+                <div className="flex items-center gap-4 flex-wrap">
+                  <div className="flex items-center gap-2">
+                    <span className="text-2xl">{MOOD_OPTIONS.find(m => m.key === todayCheckIn.mood)?.emoji}</span>
+                    <span className="text-sm font-semibold" style={{ fontFamily: F, color: c.forest }}>
+                      {MOOD_OPTIONS.find(m => m.key === todayCheckIn.mood)?.label}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    {[1,2,3,4,5].map(n => (
+                      <div
+                        key={n}
+                        className="w-2 h-2 rounded-full"
+                        style={{ background: n <= todayCheckIn.energy ? '#1B3B2B' : 'rgba(27,59,43,0.15)' }}
+                      />
+                    ))}
+                    <span className="text-xs ml-1" style={{ fontFamily: I, color: c.muted }}>energy</span>
+                  </div>
+                </div>
+                {todayCheckIn.reflection && (
+                  <p className="text-sm mt-3 leading-relaxed line-clamp-2" style={{ fontFamily: I, color: c.body }}>
+                    "{todayCheckIn.reflection}"
+                  </p>
+                )}
+              </div>
+            ) : (
+              // ── Form state ──
+              <div
+                className="rounded-3xl p-6"
+                style={{ background: c.card, border: `1px solid ${c.cardBorder}` }}
+              >
+                <p className="text-xs font-semibold uppercase tracking-widest mb-5" style={{ fontFamily: I, color: c.sage }}>
+                  Daily check-in
+                </p>
+
+                {/* Mood */}
+                <div className="mb-5">
+                  <p className="text-sm font-semibold mb-3" style={{ fontFamily: F, color: c.forest }}>How are you feeling?</p>
+                  <div className="flex gap-2 flex-wrap">
+                    {MOOD_OPTIONS.map(m => (
+                      <button
+                        key={m.key}
+                        onClick={() => setCheckInMood(m.key)}
+                        className="flex flex-col items-center gap-1 px-3 py-2.5 rounded-2xl transition-all duration-150"
+                        style={{
+                          background: checkInMood === m.key ? '#1B3B2B' : c.surface,
+                          border: `1.5px solid ${checkInMood === m.key ? '#1B3B2B' : 'transparent'}`,
+                        }}
+                      >
+                        <span className="text-xl">{m.emoji}</span>
+                        <span className="text-[10px] font-semibold" style={{ fontFamily: I, color: checkInMood === m.key ? '#fff' : c.muted }}>
+                          {m.label}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Energy */}
+                <div className="mb-5">
+                  <p className="text-sm font-semibold mb-3" style={{ fontFamily: F, color: c.forest }}>Energy level</p>
+                  <div className="flex items-center gap-2">
+                    {[1,2,3,4,5].map(n => (
+                      <button
+                        key={n}
+                        onClick={() => setCheckInEnergy(n)}
+                        className="flex flex-col items-center gap-1.5 transition-all duration-150"
+                      >
+                        <div
+                          className="w-8 h-8 rounded-xl flex items-center justify-center text-xs font-bold transition-all"
+                          style={{
+                            background: n <= checkInEnergy ? '#1B3B2B' : c.surface,
+                            color: n <= checkInEnergy ? '#fff' : c.muted,
+                            fontFamily: I,
+                          }}
+                        >
+                          {n}
+                        </div>
+                      </button>
+                    ))}
+                    <span className="text-xs ml-1" style={{ fontFamily: I, color: c.muted }}>
+                      {checkInEnergy === 0 ? 'tap to rate' : checkInEnergy <= 2 ? 'drained' : checkInEnergy === 3 ? 'moderate' : checkInEnergy === 4 ? 'energised' : 'fully charged'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Reflection */}
+                <div className="mb-5">
+                  <p className="text-sm font-semibold mb-1" style={{ fontFamily: F, color: c.forest }}>{todayPrompt}</p>
+                  <textarea
+                    value={checkInReflection}
+                    onChange={e => setCheckInReflection(e.target.value)}
+                    placeholder="Write anything — or leave it blank…"
+                    maxLength={1000}
+                    rows={3}
+                    className="w-full resize-none rounded-2xl px-4 py-3 text-sm outline-none transition-all"
+                    style={{
+                      background: c.surface,
+                      border: `1.5px solid ${c.cardBorder}`,
+                      fontFamily: I,
+                      color: c.forest,
+                      lineHeight: 1.65,
+                    }}
+                  />
+                </div>
+
+                {/* Actions */}
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={handleSaveCheckIn}
+                    disabled={!checkInMood || checkInEnergy === 0 || checkInSaving}
+                    className="py-2.5 px-5 rounded-2xl text-sm font-semibold text-white transition-all duration-200 hover:opacity-90 active:scale-[0.98] disabled:opacity-40"
+                    style={{ fontFamily: F, background: '#1B3B2B' }}
+                  >
+                    {checkInSaving ? 'Saving…' : todayCheckIn ? 'Update' : 'Save check-in'}
+                  </button>
+                  {editingCheckIn && (
+                    <button
+                      onClick={() => setEditingCheckIn(false)}
+                      className="text-sm transition-opacity hover:opacity-60"
+                      style={{ fontFamily: I, color: c.muted }}
+                    >
+                      Cancel
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+          </section>
+        )}
+
+        {/* ── Growth card (Pro only) ── */}
+        {isPro && results.length > 0 && (
+          <section className="mb-10">
+            <div
+              className="rounded-3xl p-6 sm:p-8"
+              style={{
+                background: 'linear-gradient(135deg, #1B3B2B 0%, #2a5240 100%)',
+                border: '1px solid rgba(162,191,166,0.2)',
+              }}
+            >
+              <p className="text-xs font-semibold uppercase tracking-widest mb-4" style={{ fontFamily: I, color: '#A2BFA6' }}>
+                Your growth profile ✦ Pro
+              </p>
+
+              {/* Quiz completion */}
+              <div className="mb-5">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-semibold" style={{ fontFamily: F, color: '#fff' }}>
+                    {results.length} of {quizzes.length} quizzes complete
+                  </span>
+                  <span className="text-xs" style={{ fontFamily: I, color: '#A2BFA6' }}>
+                    {Math.round((results.length / quizzes.length) * 100)}%
+                  </span>
+                </div>
+                <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.12)' }}>
+                  <div
+                    className="h-full rounded-full transition-all duration-700"
+                    style={{ width: `${Math.round((results.length / quizzes.length) * 100)}%`, background: '#A2BFA6' }}
+                  />
+                </div>
+              </div>
+
+              {/* Result tags */}
+              <div className="flex flex-wrap gap-2 mb-5">
+                {results.slice(0, 4).map(r => (
+                  <span
+                    key={r.id}
+                    className="text-xs px-2.5 py-1 rounded-full font-medium"
+                    style={{ background: 'rgba(162,191,166,0.18)', color: '#c8deca', fontFamily: I }}
+                  >
+                    {r.resultEmoji} {r.resultTitle}
+                  </span>
+                ))}
+              </div>
+
+              {/* Insight line */}
+              <p className="text-sm leading-relaxed" style={{ fontFamily: I, color: 'rgba(255,255,255,0.72)' }}>
+                {results.length >= 3
+                  ? `You've built a meaningful self-portrait across ${results.length} quizzes. Your results reveal patterns worth exploring further.`
+                  : `Complete more quizzes to unlock a deeper picture of who you are and how you work best.`}
+              </p>
+
+              {streak >= 3 && (
+                <div className="flex items-center gap-2 mt-4">
+                  <span className="text-sm">🔥</span>
+                  <span className="text-xs font-semibold" style={{ fontFamily: I, color: '#A2BFA6' }}>
+                    {streak}-day streak — consistency is your superpower.
+                  </span>
+                </div>
+              )}
+            </div>
+          </section>
+        )}
 
         {/* ── Insight card ── */}
         {insight && (

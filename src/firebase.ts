@@ -289,6 +289,66 @@ export async function activateSubscription(uid: string, squadRef: string): Promi
   })
 }
 
+// ── Check-ins ────────────────────────────────────────────────────────────────
+
+export type MoodKey = 'thriving' | 'good' | 'okay' | 'low' | 'rough'
+
+export interface CheckIn {
+  mood: MoodKey
+  energy: number      // 1–5
+  reflection: string  // free text response to the daily prompt
+  prompt: string      // the prompt that was shown
+  createdAt?: Timestamp | null
+  updatedAt?: Timestamp | null
+}
+
+export const MOOD_OPTIONS: { key: MoodKey; emoji: string; label: string }[] = [
+  { key: 'rough',    emoji: '😞', label: 'Rough'     },
+  { key: 'low',      emoji: '😔', label: 'Low'       },
+  { key: 'okay',     emoji: '😐', label: 'Okay'      },
+  { key: 'good',     emoji: '😊', label: 'Good'      },
+  { key: 'thriving', emoji: '🌟', label: 'Thriving'  },
+]
+
+const DAILY_PROMPTS = [
+  "What felt most like you today?",
+  "What's one thing you're carrying right now?",
+  "What would make today feel like a win?",
+  "What are you looking forward to?",
+  "What's draining you most right now?",
+  "What are you grateful for today?",
+  "What's one thing you want to let go of?",
+  "When did you last feel fully present?",
+  "What would you do differently if you knew you couldn't fail?",
+  "What part of your life feels most aligned with who you're becoming?",
+]
+
+export function getTodayPrompt(): string {
+  const start = new Date(new Date().getFullYear(), 0, 0).getTime()
+  const dayOfYear = Math.floor((Date.now() - start) / 86_400_000)
+  return DAILY_PROMPTS[dayOfYear % DAILY_PROMPTS.length]
+}
+
+export async function saveCheckIn(
+  uid: string,
+  data: Pick<CheckIn, 'mood' | 'energy' | 'reflection' | 'prompt'>,
+): Promise<void> {
+  const dateKey = todayISO()
+  const ref = doc(db, 'users', uid, 'checkins', dateKey)
+  const existing = await getDoc(ref)
+  if (existing.exists()) {
+    await updateDoc(ref, { ...data, updatedAt: serverTimestamp() })
+  } else {
+    await setDoc(ref, { ...data, createdAt: serverTimestamp(), updatedAt: serverTimestamp() })
+  }
+}
+
+export async function getTodayCheckIn(uid: string): Promise<CheckIn | null> {
+  const snap = await getDoc(doc(db, 'users', uid, 'checkins', todayISO()))
+  if (!snap.exists()) return null
+  return snap.data() as CheckIn
+}
+
 // ── Waitlist (legacy) ───────────────────────────────────────────────────────
 
 export type WaitlistResult =

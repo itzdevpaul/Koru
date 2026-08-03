@@ -66,6 +66,35 @@ service cloud.firestore {
       allow write: if request.auth != null && request.auth.uid == uid;
     }
 
+    // ── Check-ins ─────────────────────────────────────────────────────────────
+    // Stored at /users/{uid}/checkins/{YYYY-MM-DD} — one document per day.
+    // Owners may read, create, and update their own check-ins. Deletes blocked.
+    match /users/{uid}/checkins/{dateId} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+
+      allow create: if request.auth != null
+        && request.auth.uid == uid
+        && request.resource.data.keys().hasAll(['mood', 'energy', 'reflection', 'prompt', 'createdAt'])
+        && request.resource.data.mood is string
+        && request.resource.data.mood in ['thriving', 'good', 'okay', 'low', 'rough']
+        && request.resource.data.energy is int
+        && request.resource.data.energy >= 1
+        && request.resource.data.energy <= 5
+        && request.resource.data.reflection is string
+        && request.resource.data.reflection.size() <= 1000
+        && request.resource.data.prompt is string;
+
+      allow update: if request.auth != null
+        && request.auth.uid == uid
+        && request.resource.data.mood is string
+        && request.resource.data.mood in ['thriving', 'good', 'okay', 'low', 'rough']
+        && request.resource.data.energy is int
+        && request.resource.data.energy >= 1
+        && request.resource.data.energy <= 5;
+
+      allow delete: if false;
+    }
+
     // ── Everything else: deny ─────────────────────────────────────────────────
     // Catch-all explicit deny. Any collection not listed above is inaccessible
     // to all clients, regardless of auth state.
