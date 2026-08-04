@@ -107,6 +107,25 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // ── Ads ───────────────────────────────────────────────────────────────────
+    // /ads/{adId} — admin full CRUD; any authenticated user may read active ads
+    // (getActiveAd is called client-side for free users on the Home dashboard).
+    match /ads/{adId} {
+      // Any authenticated user can read individual ad documents (needed for
+      // the active-ad query on the Home page).
+      allow read: if request.auth != null;
+
+      // Only admin may create, update, or delete ads.
+      allow create: if isAdmin()
+        && request.resource.data.keys().hasAll(['title', 'description', 'ctaText', 'ctaLink', 'imageBase64', 'active', 'createdAt'])
+        && request.resource.data.title is string
+        && request.resource.data.ctaLink is string
+        && request.resource.data.active is bool;
+
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
     // ── Everything else: deny ─────────────────────────────────────────────────
     // Catch-all explicit deny. Any collection not listed above is inaccessible
     // to all clients, regardless of auth state.
