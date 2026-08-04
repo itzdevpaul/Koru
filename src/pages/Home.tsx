@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
 import { useSubscription } from '../context/SubscriptionContext'
 import { logOut, getQuizResults, updateStreak, getUserProfile, updateUserProfile, sendReminderEmail, saveCheckIn, getTodayCheckIn, getTodayPrompt, MOOD_OPTIONS, getActiveAd, type SavedQuizResult, type CheckIn, type MoodKey, type Ad } from '../firebase'
+import { generateCheckInShareImage, shareOrDownloadImage } from '../utils/shareImage'
 import { quizzes, insightCombinations } from '../data/quizzes'
 import AdModal from '../components/AdModal'
 
@@ -43,6 +44,8 @@ export default function Home() {
   const [checkInEnergy, setCheckInEnergy] = useState(0)
   const [checkInReflection, setCheckInReflection] = useState('')
   const [checkInSaving, setCheckInSaving] = useState(false)
+  const [checkInSharing, setCheckInSharing] = useState(false)
+  const [checkInShareMsg, setCheckInShareMsg] = useState('')
 
   const firstName = user?.displayName?.split(' ')[0] ?? 'there'
 
@@ -105,6 +108,30 @@ export default function Home() {
     setCheckInEnergy(existing?.energy ?? 0)
     setCheckInReflection(existing?.reflection ?? '')
     setEditingCheckIn(true)
+  }
+
+  async function handleShareCheckIn(checkIn: CheckIn) {
+    setCheckInSharing(true)
+    setCheckInShareMsg('')
+    try {
+      const moodOpt = MOOD_OPTIONS.find(m => m.key === checkIn.mood)
+      const today = new Date().toLocaleDateString('en-NG', { weekday: 'long', month: 'long', day: 'numeric' })
+      const blob = await generateCheckInShareImage({
+        moodEmoji: moodOpt?.emoji ?? '🙂',
+        moodLabel: moodOpt?.label ?? checkIn.mood,
+        energy: checkIn.energy,
+        reflection: checkIn.reflection,
+        date: today,
+      })
+      const outcome = await shareOrDownloadImage(blob, 'koru-checkin.png', 'My Koru daily check-in')
+      if (outcome === 'downloaded') setCheckInShareMsg('Image saved!')
+      else if (outcome === 'error') setCheckInShareMsg('Unable to save — try again.')
+    } catch {
+      setCheckInShareMsg('Unable to generate image.')
+    } finally {
+      setCheckInSharing(false)
+      setTimeout(() => setCheckInShareMsg(''), 3500)
+    }
   }
 
   const completedIds = new Set(results.map(r => r.quizId))
@@ -342,6 +369,32 @@ export default function Home() {
                   <p className="text-sm mt-3 leading-relaxed line-clamp-2" style={{ fontFamily: I, color: c.body }}>
                     "{todayCheckIn.reflection}"
                   </p>
+                )}
+                {/* Share button */}
+                <button
+                  onClick={() => handleShareCheckIn(todayCheckIn)}
+                  disabled={checkInSharing}
+                  className="mt-4 flex items-center gap-1.5 text-xs font-semibold transition-opacity hover:opacity-60 disabled:opacity-40 disabled:cursor-not-allowed"
+                  style={{ fontFamily: I, color: c.muted }}
+                >
+                  {checkInSharing ? (
+                    <>
+                      <svg className="animate-spin" width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeDasharray="32" strokeDashoffset="12" strokeLinecap="round" />
+                      </svg>
+                      Creating image…
+                    </>
+                  ) : (
+                    <>
+                      <svg width="12" height="12" viewBox="0 0 15 15" fill="none" aria-hidden="true">
+                        <path d="M10.5 2.5a2 2 0 1 1 0 4 2 2 0 0 1 0-4ZM4.5 6.5a2 2 0 1 1 0 4 2 2 0 0 1 0-4Zm6 3a2 2 0 1 1 0 4 2 2 0 0 1 0-4ZM6 8.5l3-1.5M9 9l-3 1.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+                      </svg>
+                      Share check-in
+                    </>
+                  )}
+                </button>
+                {checkInShareMsg && (
+                  <p className="text-xs mt-1" style={{ fontFamily: I, color: c.muted }}>{checkInShareMsg}</p>
                 )}
               </div>
             ) : (

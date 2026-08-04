@@ -5,6 +5,8 @@ import { useTheme } from '../context/ThemeContext'
 import { useSubscription } from '../context/SubscriptionContext'
 import { saveQuizResult } from '../firebase'
 import { getQuizById, scoreQuiz, type QuizResultType } from '../data/quizzes'
+import { canTakeQuiz, recordQuizCompletion, formatTimeRemaining, FREE_QUIZ_LIMIT } from '../utils/quizRateLimit'
+import { generateQuizShareImage, shareOrDownloadImage } from '../utils/shareImage'
 
 type Phase = 'intro' | 'question' | 'result'
 
@@ -27,6 +29,8 @@ export default function Quiz() {
   const [animating, setAnimating] = useState(false)
   const [saving, setSaving] = useState(false)
   const [shareMsg, setShareMsg] = useState('')
+  const [sharingImage, setSharingImage] = useState(false)
+  const [rateLimitHit, setRateLimitHit] = useState(false)
 
   if (!quiz) {
     return (
@@ -81,6 +85,12 @@ export default function Quiz() {
   const progress = phase === 'result' ? 100 : (currentQ / quiz.questions.length) * 100
 
   function handleStart() {
+    // Rate-limit free users to FREE_QUIZ_LIMIT completions per 12 hours
+    if (!isPro && !canTakeQuiz()) {
+      setRateLimitHit(true)
+      return
+    }
+    setRateLimitHit(false)
     setPhase('question')
     setCurrentQ(0)
     setSelected(null)
@@ -109,6 +119,8 @@ export default function Quiz() {
         setResult(finalResult)
         setPhase('result')
         setAnimating(false)
+        // Record completion for rate-limiting (free users only)
+        if (!isPro) recordQuizCompletion()
         if (user) {
           setSaving(true)
           saveQuizResult(user.uid, {
@@ -124,25 +136,25 @@ export default function Quiz() {
   }
 
   async function handleShare() {
-    if (!result) return
-    const text = `I just took "${quiz!.title}" on Koru and got ${result.emoji} ${result.title} — "${result.tagline}" Try it at getkoru.app`
-
-    if (navigator.share) {
-      try {
-        await navigator.share({ title: result.title, text })
-        return
-      } catch {
-        // user cancelled — fall through to clipboard
-      }
-    }
-
+    if (!result || !quiz) return
+    setSharingImage(true)
+    setShareMsg('')
     try {
-      await navigator.clipboard.writeText(text)
-      setShareMsg('Copied to clipboard!')
+      const blob = await generateQuizShareImage({
+        emoji: result.emoji,
+        title: result.title,
+        tagline: result.tagline,
+        quizTitle: quiz.title,
+      })
+      const outcome = await shareOrDownloadImage(blob, `koru-${quiz.id}-result.png`, `My Koru result: ${result.title}`)
+      if (outcome === 'downloaded') setShareMsg('Image saved!')
+      else if (outcome === 'error') setShareMsg('Unable to save — try again.')
     } catch {
-      setShareMsg('Unable to copy — try manually.')
+      setShareMsg('Unable to generate image.')
+    } finally {
+      setSharingImage(false)
+      setTimeout(() => setShareMsg(''), 3500)
     }
-    setTimeout(() => setShareMsg(''), 3000)
   }
 
   return (
@@ -197,13 +209,36 @@ export default function Quiz() {
               <h1 className="text-2xl sm:text-3xl font-bold mb-3" style={{ fontFamily: F, color: c.forest }}>{quiz.title}</h1>
               <p className="text-sm mb-3 max-w-sm mx-auto" style={{ fontFamily: I, color: c.body, lineHeight: 1.65 }}>{quiz.description}</p>
               <p className="text-xs mb-10" style={{ fontFamily: I, color: c.sage }}>{quiz.questions.length} questions · ~{quiz.estimatedMinutes} min</p>
-              <button
-                onClick={handleStart}
-                className="px-8 py-4 rounded-2xl text-sm font-semibold text-white transition-all duration-200 hover:opacity-90 active:scale-95"
-                style={{ fontFamily: F, background: '#1B3B2B' }}
-              >
-                Start quiz →
-              </button>
+              {rateLimitHit ? (
+                <div
+                  className="rounded-2xl px-6 py-5 text-center"
+                  style={{ background: c.surface, border: `1.5px solid ${c.cardBorder}` }}
+                >
+                  <p className="text-2xl mb-2">⏳</p>
+                  <p className="text-sm font-bold mb-1" style={{ fontFamily: F, color: c.forest }}>
+                    Daily limit reached
+                  </p>
+                  <p className="text-xs leading-relaxed mb-3" style={{ fontFamily: I, color: c.body }}>
+                    Free accounts can complete {FREE_QUIZ_LIMIT} quizzes every 12 hours. Come back in{' '}
+                    <span style={{ color: c.forest, fontWeight: 600 }}>{formatTimeRemaining()}</span>.
+                  </p>
+                  <Link
+                    to="/upgrade"
+                    className="inline-block px-5 py-2.5 rounded-xl text-xs font-semibold text-white transition-opacity hover:opacity-90"
+                    style={{ fontFamily: F, background: '#1B3B2B' }}
+                  >
+                    Upgrade for unlimited →
+                  </Link>
+                </div>
+              ) : (
+                <button
+                  onClick={handleStart}
+                  className="px-8 py-4 rounded-2xl text-sm font-semibold text-white transition-all duration-200 hover:opacity-90 active:scale-95"
+                  style={{ fontFamily: F, background: '#1B3B2B' }}
+                >
+                  Start quiz →
+                </button>
+              )}
             </div>
           )}
 
@@ -329,16 +364,28 @@ export default function Quiz() {
                 <p className="text-center text-xs mb-4" style={{ fontFamily: I, color: '#A2BFA6' }}>Saving your result…</p>
               )}
 
-              {/* Share */}
+              {/* Share — generates a shareable image */}
               <button
                 onClick={handleShare}
-                className="w-full py-3 rounded-2xl text-sm font-semibold mb-3 transition-all duration-200 hover:opacity-80 active:scale-[0.98] flex items-center justify-center gap-2"
+                disabled={sharingImage}
+                className="w-full py-3 rounded-2xl text-sm font-semibold mb-3 transition-all duration-200 hover:opacity-80 active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
                 style={{ fontFamily: F, background: c.surface, color: c.forest, border: `1.5px solid ${c.cardBorder}` }}
               >
-                <svg width="15" height="15" viewBox="0 0 15 15" fill="none" aria-hidden="true">
-                  <path d="M10.5 2.5a2 2 0 1 1 0 4 2 2 0 0 1 0-4ZM4.5 6.5a2 2 0 1 1 0 4 2 2 0 0 1 0-4Zm6 3a2 2 0 1 1 0 4 2 2 0 0 1 0-4ZM6 8.5l3-1.5M9 9l-3 1.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-                </svg>
-                Share my result
+                {sharingImage ? (
+                  <>
+                    <svg className="animate-spin" width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeDasharray="32" strokeDashoffset="12" strokeLinecap="round" />
+                    </svg>
+                    Creating image…
+                  </>
+                ) : (
+                  <>
+                    <svg width="15" height="15" viewBox="0 0 15 15" fill="none" aria-hidden="true">
+                      <path d="M10.5 2.5a2 2 0 1 1 0 4 2 2 0 0 1 0-4ZM4.5 6.5a2 2 0 1 1 0 4 2 2 0 0 1 0-4Zm6 3a2 2 0 1 1 0 4 2 2 0 0 1 0-4ZM6 8.5l3-1.5M9 9l-3 1.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+                    </svg>
+                    Share my result
+                  </>
+                )}
               </button>
               {shareMsg && (
                 <p className="text-center text-xs mb-3" style={{ fontFamily: I, color: c.muted }}>{shareMsg}</p>

@@ -5,7 +5,20 @@ interface AdModalProps {
   onDismiss: () => void
 }
 
+/** Returns true only for well-formed http/https URLs. */
+function isValidUrl(raw: string): boolean {
+  if (!raw?.trim()) return false
+  try {
+    const u = new URL(raw.trim())
+    return u.protocol === 'http:' || u.protocol === 'https:'
+  } catch {
+    return false
+  }
+}
+
 export default function AdModal({ ad, onDismiss }: AdModalProps) {
+  const validLink = isValidUrl(ad.ctaLink)
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
@@ -29,15 +42,16 @@ export default function AdModal({ ad, onDismiss }: AdModalProps) {
           </svg>
         </button>
 
-        {/* Image */}
-        {ad.imageBase64 && (
+        {/* Image — only rendered when imageBase64 is a non-empty string */}
+        {ad.imageBase64?.trim() ? (
           <img
             src={ad.imageBase64}
             alt={ad.title}
             className="w-full object-cover"
             style={{ maxHeight: 200 }}
+            onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
           />
-        )}
+        ) : null}
 
         {/* Content */}
         <div className="p-5">
@@ -47,18 +61,32 @@ export default function AdModal({ ad, onDismiss }: AdModalProps) {
           <h3 className="text-lg font-bold mb-1" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", color: '#1B3B2B' }}>
             {ad.title}
           </h3>
-          <p className="text-sm mb-4" style={{ color: '#4A6358' }}>
-            {ad.description}
-          </p>
-          <a
-            href={ad.ctaLink}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="block w-full text-center py-2.5 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90"
-            style={{ background: '#1B3B2B', color: '#FBF9F5' }}
-          >
-            {ad.ctaText}
-          </a>
+          {ad.description?.trim() ? (
+            <p className="text-sm mb-4" style={{ color: '#4A6358' }}>
+              {ad.description}
+            </p>
+          ) : null}
+
+          {/* CTA button — disabled when the link is missing or invalid */}
+          {validLink ? (
+            <a
+              href={ad.ctaLink.trim()}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block w-full text-center py-2.5 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90"
+              style={{ background: '#1B3B2B', color: '#FBF9F5' }}
+            >
+              {ad.ctaText?.trim() || 'Learn more'}
+            </a>
+          ) : (
+            <button
+              disabled
+              className="block w-full text-center py-2.5 rounded-xl text-sm font-semibold cursor-not-allowed"
+              style={{ background: 'rgba(27,59,43,0.15)', color: 'rgba(27,59,43,0.4)' }}
+            >
+              {ad.ctaText?.trim() || 'Learn more'}
+            </button>
+          )}
         </div>
       </div>
     </div>
