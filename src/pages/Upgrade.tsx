@@ -101,12 +101,14 @@ export default function Upgrade() {
           {/* Features */}
           <ul className="flex flex-col gap-3.5 mb-8">
             {[
+              { emoji: '🚫', text: 'No ads — ever. A completely clean experience.' },
               { emoji: '🔒', text: 'Full access to all 18+ intimacy & sex quizzes' },
+              { emoji: '🧭', text: 'Relationship, boundary & mindset diagnostics' },
               { emoji: '📊', text: 'Complete results for every quiz — no more teasers' },
               { emoji: '🔗', text: 'Attachment style deep-dive' },
               { emoji: '🔥', text: 'Desire style & what truly turns you on' },
               { emoji: '💬', text: 'How you communicate about sex & intimacy' },
-              { emoji: '✨', text: 'All future 18+ quizzes included automatically' },
+              { emoji: '✨', text: 'All future Pro quizzes included automatically' },
             ].map(({ emoji, text }) => (
               <li key={text} className="flex items-start gap-3">
                 <span className="text-base mt-0.5 flex-shrink-0">{emoji}</span>

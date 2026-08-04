@@ -14,6 +14,8 @@ import {
   addDoc,
   where,
   documentId,
+  deleteDoc,
+  limit,
 } from 'firebase/firestore'
 import {
   getAuth,
@@ -465,6 +467,46 @@ export interface WaitlistEntry {
   userAgent: string
   referralCode: string
   referredBy?: string
+}
+
+// ── Ads ──────────────────────────────────────────────────────────────────────
+
+export interface Ad {
+  id?: string
+  imageBase64: string
+  title: string
+  description: string
+  ctaText: string
+  ctaLink: string
+  active: boolean
+  createdAt: Timestamp | null
+}
+
+export async function saveAd(ad: Omit<Ad, 'id' | 'createdAt'>): Promise<string> {
+  const ref = await addDoc(collection(db, 'ads'), { ...ad, createdAt: serverTimestamp() })
+  return ref.id
+}
+
+export async function getAllAds(): Promise<Ad[]> {
+  const snap = await getDocs(query(collection(db, 'ads'), orderBy('createdAt', 'desc')))
+  return snap.docs.map(d => ({ id: d.id, ...d.data() } as Ad))
+}
+
+export async function getActiveAd(): Promise<Ad | null> {
+  const snap = await getDocs(
+    query(collection(db, 'ads'), where('active', '==', true), orderBy('createdAt', 'desc'), limit(1))
+  )
+  if (snap.empty) return null
+  const d = snap.docs[0]
+  return { id: d.id, ...d.data() } as Ad
+}
+
+export async function toggleAdActive(id: string, active: boolean): Promise<void> {
+  await updateDoc(doc(db, 'ads', id), { active })
+}
+
+export async function deleteAd(id: string): Promise<void> {
+  await deleteDoc(doc(db, 'ads', id))
 }
 
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {

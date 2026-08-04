@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { useTheme } from '../context/ThemeContext'
-import { auth, googleProvider, signOut, onAuthStateChanged } from '../firebase'
+import { auth, googleProvider, signOut, onAuthStateChanged, getAllAds, saveAd, toggleAdActive, deleteAd, type Ad } from '../firebase'
 import { signInWithPopup, type User } from 'firebase/auth'
 
 const F = "'Plus Jakarta Sans', sans-serif"
@@ -44,12 +44,23 @@ export default function Admin() {
   const [signInError, setSignInError] = useState('')
   const [signInLoading, setSignInLoading] = useState(false)
 
+  const [activeTab, setActiveTab] = useState<'users' | 'ads'>('users')
+
+  // Users tab
   const [users, setUsers] = useState<AdminUser[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState<'all' | 'pro' | 'free'>('all')
   const [expandedUid, setExpandedUid] = useState<string | null>(null)
+
+  // Ads tab
+  const [ads, setAds] = useState<Ad[]>([])
+  const [adsLoading, setAdsLoading] = useState(false)
+  const [adsError, setAdsError] = useState('')
+  const [adForm, setAdForm] = useState({ imageBase64: '', title: '', description: '', ctaText: 'Learn More', ctaLink: '' })
+  const [adSaving, setAdSaving] = useState(false)
+  const [adFormError, setAdFormError] = useState('')
 
   // Listen for Firebase auth state — auto-restores session on page reload
   useEffect(() => {

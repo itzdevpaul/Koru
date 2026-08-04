@@ -3,8 +3,9 @@ import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
 import { useSubscription } from '../context/SubscriptionContext'
-import { logOut, getQuizResults, updateStreak, getUserProfile, updateUserProfile, sendReminderEmail, saveCheckIn, getTodayCheckIn, getTodayPrompt, MOOD_OPTIONS, type SavedQuizResult, type CheckIn, type MoodKey } from '../firebase'
+import { logOut, getQuizResults, updateStreak, getUserProfile, updateUserProfile, sendReminderEmail, saveCheckIn, getTodayCheckIn, getTodayPrompt, MOOD_OPTIONS, getActiveAd, type SavedQuizResult, type CheckIn, type MoodKey, type Ad } from '../firebase'
 import { quizzes, insightCombinations } from '../data/quizzes'
+import AdModal from '../components/AdModal'
 
 const F = "'Plus Jakarta Sans', sans-serif"
 const I = "'Inter', sans-serif"
@@ -20,6 +21,10 @@ export default function Home() {
   const [loadingResults, setLoadingResults] = useState(true)
   const [streak, setStreak] = useState(0)
   const [expiryDismissed, setExpiryDismissed] = useState(false)
+
+  // ── Ad modal ──
+  const [activeAd, setActiveAd] = useState<Ad | null>(null)
+  const [adDismissed, setAdDismissed] = useState(() => !!sessionStorage.getItem('koru-ad-seen'))
 
   // ── Clarity Card trigger ──
   const currentMonth = new Date().toISOString().slice(0, 7)
@@ -50,6 +55,10 @@ export default function Home() {
     getTodayCheckIn(user.uid)
       .then(setTodayCheckIn)
       .finally(() => setLoadingCheckIn(false))
+    // Fetch ad for free users only, once per session
+    if (!isPro && !adDismissed) {
+      getActiveAd().then(ad => { if (ad) setActiveAd(ad) }).catch(() => {})
+    }
   }, [user])
 
   // ── Weekly reminder: fire once on mount if opted in and 7+ days since last send ──
@@ -107,8 +116,17 @@ export default function Home() {
     ? insightCombinations[`${thinkingResult.resultTypeId}-${drivesResult.resultTypeId}`]
     : null
 
+  function handleAdDismiss() {
+    sessionStorage.setItem('koru-ad-seen', '1')
+    setAdDismissed(true)
+  }
+
   return (
     <div className="min-h-screen" style={{ background: c.bg, transition: 'background 0.25s' }}>
+      {/* Ad modal — free users only, once per session */}
+      {activeAd && !adDismissed && !isPro && (
+        <AdModal ad={activeAd} onDismiss={handleAdDismiss} />
+      )}
       {/* Nav */}
       <header
         className="sticky top-0 z-30 flex items-center justify-between px-5 sm:px-8 h-16"
