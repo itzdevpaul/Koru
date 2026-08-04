@@ -98,20 +98,22 @@ export default function Quiz() {
     setAnimating(true)
 
     setTimeout(() => {
-      if (currentQ < quiz.questions.length - 1) {
+      // quiz is guaranteed non-null here (guarded at top of component)
+      const q_ = quiz!
+      if (currentQ < q_.questions.length - 1) {
         setCurrentQ(q => q + 1)
         setSelected(null)
         setAnimating(false)
       } else {
-        const finalResult = scoreQuiz(quiz, newAnswers)
+        const finalResult = scoreQuiz(q_, newAnswers)
         setResult(finalResult)
         setPhase('result')
         setAnimating(false)
         if (user) {
           setSaving(true)
           saveQuizResult(user.uid, {
-            quizId: quiz.id,
-            quizTitle: quiz.title,
+            quizId: q_.id,
+            quizTitle: q_.title,
             resultTypeId: finalResult.id,
             resultTitle: finalResult.title,
             resultEmoji: finalResult.emoji,
@@ -123,7 +125,7 @@ export default function Quiz() {
 
   async function handleShare() {
     if (!result) return
-    const text = `I just took "${quiz.title}" on Koru and got ${result.emoji} ${result.title} — "${result.tagline}" Try it at getkoru.app`
+    const text = `I just took "${quiz!.title}" on Koru and got ${result.emoji} ${result.title} — "${result.tagline}" Try it at getkoru.app`
 
     if (navigator.share) {
       try {

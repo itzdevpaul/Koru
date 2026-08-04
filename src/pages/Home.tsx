@@ -515,7 +515,7 @@ export default function Home() {
         )}
 
         {/* ── Insight card ── */}
-        {insight && (
+        {insight && thinkingResult && drivesResult && (
           <section className="mb-10">
             <div
               className="rounded-3xl p-6 sm:p-8"
