@@ -533,7 +533,7 @@ export default function Home() {
           <h2 className="text-lg font-bold mb-4" style={{ fontFamily: F, color: c.forest }}>Discover yourself</h2>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {quizzes.filter(q => !q.mature).map(quiz => {
+            {quizzes.filter(q => !q.mature && !q.pro).map(quiz => {
               const done = completedIds.has(quiz.id)
               const myResult = results.find(r => r.quizId === quiz.id)
               return (
@@ -577,6 +577,116 @@ export default function Home() {
                     <span className="text-xs font-semibold" style={{ fontFamily: F, color: c.forest }}>{done ? 'Retake' : 'Take quiz'}</span>
                     <span style={{ color: c.forest, fontSize: 12 }} aria-hidden="true">→</span>
                   </div>
+                </Link>
+              )
+            })}
+          </div>
+        </section>
+
+        {/* ── Pro: Relationships & Mindset ── */}
+        <section className="mb-12">
+          <div className="flex items-center gap-3 mb-4">
+            <h2 className="text-lg font-bold" style={{ fontFamily: F, color: c.forest }}>Relationships &amp; mindset</h2>
+            <span
+              className="text-[10px] font-bold px-2 py-0.5 rounded-full"
+              style={{ background: 'rgba(27,59,43,0.1)', color: '#1B3B2B', fontFamily: I, letterSpacing: '0.05em' }}
+            >
+              Pro
+            </span>
+          </div>
+
+          {!isPro && (
+            <Link
+              to="/upgrade"
+              className="flex items-center gap-3 px-5 py-3.5 rounded-2xl mb-4 transition-opacity hover:opacity-80"
+              style={{ background: 'rgba(27,59,43,0.07)', border: '1.5px solid rgba(27,59,43,0.15)', textDecoration: 'none' }}
+            >
+              <span className="text-xl">⭐</span>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold" style={{ fontFamily: F, color: '#1B3B2B' }}>Unlock with Koru Pro</p>
+                <p className="text-xs" style={{ fontFamily: I, color: '#4a6a58' }}>₦2,500/month — relationship diagnostics, boundary tools &amp; mindset quizzes</p>
+              </div>
+              <span className="text-xs font-bold flex-shrink-0" style={{ fontFamily: F, color: '#1B3B2B' }}>Upgrade →</span>
+            </Link>
+          )}
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {quizzes.filter(q => q.pro && !q.mature).map(quiz => {
+              const done = completedIds.has(quiz.id)
+              const myResult = results.find(r => r.quizId === quiz.id)
+              const locked = !isPro
+
+              const cardContent = (
+                <>
+                  <div className="flex items-start justify-between gap-3">
+                    <div
+                      className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl flex-shrink-0"
+                      style={{ background: c.surface, filter: locked ? 'grayscale(0.3)' : 'none' }}
+                    >
+                      {locked ? '🔒' : quiz.emoji}
+                    </div>
+                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: 'rgba(27,59,43,0.1)', color: '#1B3B2B', fontFamily: I }}>
+                        Pro
+                      </span>
+                      {locked ? null : done ? (
+                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full" style={{ background: 'rgba(162,191,166,0.25)', color: '#3a6b4a', fontFamily: I }}>
+                          ✓ Done
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full" style={{ background: c.surface, color: c.muted, fontFamily: I }}>
+                          ~{quiz.estimatedMinutes} min
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div>
+                    <p className="font-bold text-base mb-1" style={{ fontFamily: F, color: locked ? c.muted : c.forest }}>{quiz.title}</p>
+                    <p className="text-sm leading-relaxed" style={{ fontFamily: I, color: c.body }}>
+                      {locked
+                        ? 'Upgrade to Koru Pro to unlock this quiz.'
+                        : done && myResult ? `Your result: ${myResult.resultEmoji} ${myResult.resultTitle}` : quiz.description}
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 mt-auto pt-1">
+                    <span className="text-xs font-semibold" style={{ fontFamily: F, color: locked ? '#1B3B2B' : c.forest }}>
+                      {locked ? 'Upgrade to unlock →' : done ? 'Retake' : 'Take quiz'}
+                    </span>
+                    {!locked && <span style={{ color: c.forest, fontSize: 12 }} aria-hidden="true">→</span>}
+                  </div>
+                </>
+              )
+
+              return locked ? (
+                <Link
+                  key={quiz.id}
+                  to="/upgrade"
+                  className="rounded-3xl p-6 flex flex-col gap-3"
+                  style={{
+                    background: c.card,
+                    border: `1.5px solid rgba(27,59,43,0.12)`,
+                    boxShadow: c.shadow,
+                    textDecoration: 'none',
+                    opacity: 0.85,
+                  }}
+                >
+                  {cardContent}
+                </Link>
+              ) : (
+                <Link
+                  key={quiz.id}
+                  to={`/quiz/${quiz.id}`}
+                  className="group rounded-3xl p-6 flex flex-col gap-3 transition-all duration-300 hover:shadow-lg hover:-translate-y-1"
+                  style={{
+                    background: c.card,
+                    border: `1px solid ${c.cardBorder}`,
+                    boxShadow: c.shadow,
+                    textDecoration: 'none',
+                  }}
+                >
+                  {cardContent}
                 </Link>
               )
             })}

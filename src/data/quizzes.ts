@@ -29,6 +29,7 @@ export interface Quiz {
   category: string
   estimatedMinutes: number
   mature?: boolean
+  pro?: boolean
   questions: QuizQuestion[]
   results: QuizResultType[]
 }
@@ -952,6 +953,357 @@ export const quizzes: Quiz[] = [
         tagline: 'Vulnerability is something you earn the right to.',
         description: "Talking about sex openly is genuinely hard for you — not because you have nothing to say, but because exposing your desires and limits feels deeply vulnerable. You may have learned that expressing sexual needs leads to judgment, rejection, or disappointment. The result is that you often go unmet or settle for less than you want rather than risking the discomfort of asking. The work here is not learning to be loud — it is learning that your needs are worth the small risk of saying them out loud.",
         traits: ['Deeply private', 'Self-protective', 'Emotionally careful', 'Unexpressed potential', 'Growth-ready'],
+        color: '#7a6aa0',
+        tagBg: 'rgba(122,106,160,0.12)',
+      },
+    ],
+  },
+
+  // ── Pro: Is It Love or Pressure? ──────────────────────────────────────────
+  {
+    id: 'love-or-pressure',
+    emoji: '🫀',
+    title: 'Is it love or pressure?',
+    description: 'Scenario-based questions that help you evaluate whether a relationship dynamic is healthy, equal, or quietly controlling.',
+    category: 'Relationships',
+    estimatedMinutes: 5,
+    pro: true,
+    questions: [
+      {
+        id: 'q1',
+        text: 'Your partner or close friend gets upset when you make plans without telling them first. When this happens, you feel…',
+        options: [
+          { id: 'a', text: 'Nothing unusual — they just like knowing what is going on', scores: { healthy: 3 } },
+          { id: 'b', text: 'Guilty, even though you did not actually do anything wrong', scores: { pressure: 3 } },
+          { id: 'c', text: 'Anxious — you have learned to run plans by them before committing', scores: { manipulation: 3 } },
+        ],
+      },
+      {
+        id: 'q2',
+        text: 'You want to say no to something they are asking for. What happens in your head first?',
+        options: [
+          { id: 'a', text: 'Nothing much — you decide based on what you actually want', scores: { healthy: 3 } },
+          { id: 'b', text: 'You think carefully about whether saying no will disappoint them', scores: { pressure: 3 } },
+          { id: 'c', text: 'You mentally rehearse the argument that will follow if you say no', scores: { manipulation: 3 } },
+        ],
+      },
+      {
+        id: 'q3',
+        text: 'When you share a personal problem that has nothing to do with them, they usually…',
+        options: [
+          { id: 'a', text: 'Listen and support without making it about themselves', scores: { healthy: 3 } },
+          { id: 'b', text: 'Offer advice quickly, often steering toward what they think is best', scores: { pressure: 2, healthy: 1 } },
+          { id: 'c', text: 'Somehow bring it back to how it affects them', scores: { manipulation: 3 } },
+        ],
+      },
+      {
+        id: 'q4',
+        text: 'How do you feel around this person most of the time?',
+        options: [
+          { id: 'a', text: 'Like yourself — maybe even a better version', scores: { healthy: 3 } },
+          { id: 'b', text: 'Thoughtful and careful — you weigh your words before you speak', scores: { pressure: 3 } },
+          { id: 'c', text: 'Like you are managing their emotions before your own', scores: { manipulation: 3 } },
+        ],
+      },
+      {
+        id: 'q5',
+        text: 'After a disagreement, what usually happens?',
+        options: [
+          { id: 'a', text: 'You both talk it through and both feel heard', scores: { healthy: 3 } },
+          { id: 'b', text: 'One of you eventually apologises first just to restore peace', scores: { pressure: 3 } },
+          { id: 'c', text: 'You end up apologising even when you are not sure what you did wrong', scores: { manipulation: 3 } },
+        ],
+      },
+      {
+        id: 'q6',
+        text: 'They dislike something about you — a habit, a friendship, a life choice. How does that play out?',
+        options: [
+          { id: 'a', text: 'They mention it once. You consider it. You both move on.', scores: { healthy: 3 } },
+          { id: 'b', text: 'It comes up more than once, always framed as caring concern', scores: { pressure: 3 } },
+          { id: 'c', text: 'It surfaces whenever you are doing something they want you to stop', scores: { manipulation: 3 } },
+        ],
+      },
+      {
+        id: 'q7',
+        text: 'How does decision-making work in this relationship?',
+        options: [
+          { id: 'a', text: 'Both views get real weight. You find middle ground or take turns.', scores: { healthy: 3 } },
+          { id: 'b', text: 'You defer often — it is easier than going back and forth', scores: { pressure: 3 } },
+          { id: 'c', text: 'It usually ends with what they want. You are not always sure how you got there.', scores: { manipulation: 3 } },
+        ],
+      },
+      {
+        id: 'q8',
+        text: 'If this relationship ended tomorrow, your first honest emotion would be…',
+        options: [
+          { id: 'a', text: 'Loss — this person genuinely adds to my life', scores: { healthy: 3 } },
+          { id: 'b', text: 'A complicated mix of relief and loss', scores: { pressure: 3 } },
+          { id: 'c', text: 'Mostly relief', scores: { manipulation: 3 } },
+        ],
+      },
+    ],
+    results: [
+      {
+        id: 'healthy',
+        title: 'A Healthy Connection',
+        emoji: '🌱',
+        tagline: 'This relationship gives more than it takes.',
+        description: "What shows up in your answers is something genuinely worth holding onto — mutual respect, space to be yourself, and conflict that gets resolved rather than buried. No relationship is perfect, but the foundation here is solid. The fact that you can show up as yourself, set limits without anxiety, and feel heard after disagreements points to something real. Keep noticing what makes it work — that awareness is what keeps good things good.",
+        traits: ['Mutual respect', 'Space to be yourself', 'Honest conflict resolution', 'Emotional safety', 'Genuine reciprocity'],
+        color: '#1B3B2B',
+        tagBg: 'rgba(162,191,166,0.25)',
+      },
+      {
+        id: 'pressure',
+        title: 'Quiet Pressure at Play',
+        emoji: '⚖️',
+        tagline: 'It is not dramatic — but it is not equal either.',
+        description: "This is not the kind of pressure you can easily name or describe to someone else — it is subtle. You probably care deeply about this person, and they may care about you. But something is off in the balance. You find yourself editing yourself, apologising first, or choosing peace over honesty more than feels right. That is worth paying attention to. Quiet pressure does not always come from bad intentions — sometimes it comes from patterns neither person has examined. But staying comfortable with it long-term costs you more than you realise.",
+        traits: ['Subtle imbalance', 'Apologising to keep peace', 'Second-guessing yourself', 'Unequal emotional weight', 'Worth examining'],
+        color: '#c5803a',
+        tagBg: 'rgba(197,128,58,0.12)',
+      },
+      {
+        id: 'manipulation',
+        title: 'This Needs a Closer Look',
+        emoji: '🔍',
+        tagline: 'Some patterns here are worth naming clearly.',
+        description: "Your answers describe a relationship where your sense of self — your choices, your feelings, your reactions — is regularly being shaped by someone else's responses. Whether or not that is intentional does not change the effect. When you find yourself managing another person's emotions before your own, rehearsing arguments before they happen, or apologising without knowing what you did wrong, something important is being eroded. You deserve relationships where your needs are not a problem to be managed. What you are experiencing has a name, and naming it is the first step.",
+        traits: ['Emotional management of others', 'Walking on eggshells', 'Confusion about your own feelings', 'Unequal accountability', 'Your needs sidelined'],
+        color: '#E07A5F',
+        tagBg: 'rgba(224,122,95,0.15)',
+      },
+    ],
+  },
+
+  // ── Pro: How Strong Are Your Boundaries? ──────────────────────────────────
+  {
+    id: 'boundary-strength',
+    emoji: '🏔️',
+    title: 'How strong are your boundaries?',
+    description: 'Find out how effectively you say no, handle guilt-tripping, and protect your long-term peace of mind over short-term approval.',
+    category: 'Relationships',
+    estimatedMinutes: 4,
+    pro: true,
+    questions: [
+      {
+        id: 'q1',
+        text: 'A friend asks you to do something you genuinely do not want to do. You…',
+        options: [
+          { id: 'a', text: 'Say no clearly, without a long explanation or apology', scores: { firm: 3 } },
+          { id: 'b', text: 'Say no, but feel uncomfortable about it for the rest of the day', scores: { growing: 3 } },
+          { id: 'c', text: 'Say yes — the guilt of saying no is worse than just doing the thing', scores: { pleasing: 3 } },
+        ],
+      },
+      {
+        id: 'q2',
+        text: 'Someone guilt-trips you after you have already set a limit. You…',
+        options: [
+          { id: 'a', text: 'Acknowledge how they feel, then hold your position anyway', scores: { firm: 3 } },
+          { id: 'b', text: 'Start wondering whether you were being too harsh', scores: { growing: 3 } },
+          { id: 'c', text: 'Walk back what you said to make the tension go away', scores: { pleasing: 3 } },
+        ],
+      },
+      {
+        id: 'q3',
+        text: 'Someone is unhappy with a decision you made. How do you feel?',
+        options: [
+          { id: 'a', text: 'Like that is their feeling to manage, not mine to fix', scores: { firm: 3 } },
+          { id: 'b', text: 'Uncomfortable — but you remind yourself you had the right to decide', scores: { growing: 3 } },
+          { id: 'c', text: 'Responsible, like you caused damage that you now need to repair', scores: { pleasing: 3 } },
+        ],
+      },
+      {
+        id: 'q4',
+        text: '"I am doing it for the sake of peace" is something you say…',
+        options: [
+          { id: 'a', text: 'Rarely — peace built on avoidance is not peace', scores: { firm: 3 } },
+          { id: 'b', text: 'Sometimes, when the situation genuinely does not matter much to you', scores: { growing: 3 } },
+          { id: 'c', text: 'Often — short-term calm feels more manageable than long-term clarity', scores: { pleasing: 3 } },
+        ],
+      },
+      {
+        id: 'q5',
+        text: 'Someone crosses a line you set before. You…',
+        options: [
+          { id: 'a', text: 'Name it directly and remind them of what you asked for', scores: { firm: 3 } },
+          { id: 'b', text: 'Feel the tension inside but struggle to say it out loud again', scores: { growing: 3 } },
+          { id: 'c', text: 'Let it go — bringing it up again feels like too much', scores: { pleasing: 3 } },
+        ],
+      },
+      {
+        id: 'q6',
+        text: 'How often do you say yes to things you do not actually want to do?',
+        options: [
+          { id: 'a', text: 'Rarely — my time and energy are things I actively protect', scores: { firm: 3 } },
+          { id: 'b', text: 'More than I would like — I know I need to work on this', scores: { growing: 3 } },
+          { id: 'c', text: 'Very often — saying no feels selfish', scores: { pleasing: 3 } },
+        ],
+      },
+      {
+        id: 'q7',
+        text: 'A boundary-setting conversation you have been avoiding would probably start with…',
+        options: [
+          { id: 'a', text: '"I need to be honest with you about something."', scores: { firm: 3 } },
+          { id: 'b', text: '"I know this might sound weird, but I wanted to say..."', scores: { growing: 3 } },
+          { id: 'c', text: '"I am really sorry to bring this up, but maybe..."', scores: { pleasing: 3 } },
+        ],
+      },
+      {
+        id: 'q8',
+        text: 'At the end of a day where you put someone else\'s comfort above your own needs, you feel…',
+        options: [
+          { id: 'a', text: 'Like that was a deliberate choice I made — not an automatic reflex', scores: { firm: 3 } },
+          { id: 'b', text: 'A little resentful — and then guilty for feeling resentful', scores: { growing: 3 } },
+          { id: 'c', text: 'Like that is just what happens. That is who I am.', scores: { pleasing: 3 } },
+        ],
+      },
+    ],
+    results: [
+      {
+        id: 'firm',
+        title: 'Firm Boundary-Holder',
+        emoji: '🏔️',
+        tagline: 'You know the line. You hold it.',
+        description: "You have done the internal work — maybe not all of it, but enough. You understand that your limits are not requests, and that other people's discomfort with your 'no' is not your emergency. You can hold a position under pressure, name a crossed line without spiralling, and separate your care for someone from your obligation to manage their feelings. This is genuinely rare. The growth edge, if there is one, is staying this grounded in the relationships where the stakes feel highest — the ones where saying no is the hardest.",
+        traits: ['Clear and direct', 'Holds positions under pressure', 'Separates care from compliance', 'Emotionally grounded', 'Self-respecting'],
+        color: '#1B3B2B',
+        tagBg: 'rgba(162,191,166,0.25)',
+      },
+      {
+        id: 'growing',
+        title: 'Boundary-Builder in Progress',
+        emoji: '🌿',
+        tagline: 'You know what you need. Learning to ask for it.',
+        description: "You understand the idea of limits — you can name them in the abstract. But in the moment, with real people and real stakes, something gets in the way. You often know what you want to say and say something softer. You hold your position, but it costs you energy it should not. This is not a character flaw — it is usually a learned pattern, often from environments where your needs were not prioritised. The awareness you already have is the hardest part. What comes next is practice: saying the thing one sentence shorter, holding silence one beat longer.",
+        traits: ['Self-aware', 'Improving', 'Internally clear but verbally cautious', 'Learning to hold discomfort', 'Growing confidence'],
+        color: '#3a6b4a',
+        tagBg: 'rgba(162,191,166,0.25)',
+      },
+      {
+        id: 'pleasing',
+        title: 'The Overextender',
+        emoji: '🪞',
+        tagline: 'You give a lot. Maybe more than is good for you.',
+        description: "You are likely someone people describe as kind, reliable, and easy to be around. What they may not see is what it costs you. Saying yes when you mean no, absorbing others' discomfort so they do not have to feel it, apologising reflexively — these feel like love or maturity, but over time they hollow something out. The belief underneath all of this is usually: my needs are less important than keeping the peace. That belief is worth examining, because it is not true. Learning to say no is not about becoming hard — it is about becoming honest. And honesty is a better foundation for any real relationship.",
+        traits: ['Highly considerate', 'Struggles to disappoint', "Absorbs others' discomfort", 'Approval-sensitive', 'Untapped assertiveness'],
+        color: '#7a6aa0',
+        tagBg: 'rgba(122,106,160,0.12)',
+      },
+    ],
+  },
+
+  // ── Pro: Cut Through the Fog ───────────────────────────────────────────────
+  {
+    id: 'perspective-shift',
+    emoji: '🔭',
+    title: 'Can you cut through the fog?',
+    description: 'Honest, hard reflection questions designed to break emotional fog and help you see your own decisions more clearly.',
+    category: 'Mindset',
+    estimatedMinutes: 5,
+    pro: true,
+    questions: [
+      {
+        id: 'q1',
+        text: 'You are about to say yes to something. You pause and ask yourself: "Will I resent this in a week?" The honest answer is probably yes. You…',
+        options: [
+          { id: 'a', text: 'Change your answer to no', scores: { clear: 3 } },
+          { id: 'b', text: 'Say yes anyway — the future feeling is abstract; the current discomfort is real', scores: { emotional: 3 } },
+          { id: 'c', text: 'Say "let me think about it" and hope the situation resolves itself', scores: { foggy: 3 } },
+        ],
+      },
+      {
+        id: 'q2',
+        text: 'Someone you care about is pushing you toward a decision. What cuts through the noise first?',
+        options: [
+          { id: 'a', text: '"What would I decide if this person\'s feelings were not in the room?"', scores: { clear: 3 } },
+          { id: 'b', text: 'The need to figure out how to keep them happy while also being okay', scores: { emotional: 3 } },
+          { id: 'c', text: 'Nothing — the fog just gets thicker', scores: { foggy: 3 } },
+        ],
+      },
+      {
+        id: 'q3',
+        text: 'You have been going back and forth on a choice for weeks. The real reason you have not decided is…',
+        options: [
+          { id: 'a', text: 'You are waiting for specific clarity, not avoiding — you know what you are still gathering', scores: { clear: 3 } },
+          { id: 'b', text: 'You know what you want but cannot shake the guilt of choosing it', scores: { emotional: 3 } },
+          { id: 'c', text: 'You genuinely do not know what you want', scores: { foggy: 3 } },
+        ],
+      },
+      {
+        id: 'q4',
+        text: '"If I say yes to this today, how will I feel about myself tomorrow?" You ask yourself this…',
+        options: [
+          { id: 'a', text: 'Regularly — it is one of your most reliable filters', scores: { clear: 3 } },
+          { id: 'b', text: 'Sometimes, but the present-moment pull is usually stronger', scores: { emotional: 3 } },
+          { id: 'c', text: 'Rarely — thinking about tomorrow just makes the decision harder', scores: { foggy: 3 } },
+        ],
+      },
+      {
+        id: 'q5',
+        text: 'You are in a situation that does not feel right — but you cannot explain why. You…',
+        options: [
+          { id: 'a', text: 'Trust the signal and slow down until you can name what you are feeling', scores: { clear: 3 } },
+          { id: 'b', text: 'Try to reason the feeling away to test if it holds up under logic', scores: { emotional: 2, clear: 1 } },
+          { id: 'c', text: 'Push through — you assume the feeling will pass once things settle', scores: { foggy: 3 } },
+        ],
+      },
+      {
+        id: 'q6',
+        text: 'Think of a decision you regret. What was true in the moment you made it?',
+        options: [
+          { id: 'a', text: 'I knew at the time — but I let something outside me override what I knew', scores: { clear: 2, emotional: 1 } },
+          { id: 'b', text: 'I wanted the situation to be different from what it was', scores: { emotional: 3 } },
+          { id: 'c', text: 'I genuinely did not see it coming — I was inside the fog', scores: { foggy: 3 } },
+        ],
+      },
+      {
+        id: 'q7',
+        text: 'Imagine yourself five years from now, looking back at the choices you are making today. What do you most want that version of you to say?',
+        options: [
+          { id: 'a', text: '"You were honest about what you actually wanted."', scores: { clear: 3 } },
+          { id: 'b', text: '"You were kind — to others and to yourself."', scores: { emotional: 3 } },
+          { id: 'c', text: '"You tried. That is enough."', scores: { foggy: 2, emotional: 1 } },
+        ],
+      },
+      {
+        id: 'q8',
+        text: 'After a hard conversation, the question that stays with you longest is…',
+        options: [
+          { id: 'a', text: '"Did I say what was actually true?"', scores: { clear: 3 } },
+          { id: 'b', text: '"Did I handle that in a way I feel okay about?"', scores: { emotional: 3 } },
+          { id: 'c', text: '"What was that even about?"', scores: { foggy: 3 } },
+        ],
+      },
+    ],
+    results: [
+      {
+        id: 'clear',
+        title: 'The Clear-Eyed Decider',
+        emoji: '🔭',
+        tagline: 'You see through the noise.',
+        description: "You have a genuine and reliable internal compass. When pressure or emotion clouds a decision, you have a set of mental moves — questions you ask yourself, signals you trust — that cut through it. You are not cold or unfeeling; you just do not let the immediate pull of a situation make the decision for you. This is not a personality type you are born with — it is a skill that usually comes from having been wrong before and studying it. The fact that you make decisions you can live with is not luck. It is that you actually ask yourself the hard question before you answer the easy one.",
+        traits: ['Self-aware under pressure', 'Trusts internal signals', 'Thinks ahead honestly', 'Consistent with values', 'Uncomfortably honest with self'],
+        color: '#1B3B2B',
+        tagBg: 'rgba(162,191,166,0.25)',
+      },
+      {
+        id: 'emotional',
+        title: 'The Heart-Led Processor',
+        emoji: '🫀',
+        tagline: 'You feel your way through. The feeling is often right.',
+        description: "Your decisions are never purely logical — they run through your emotional experience first. This is not a weakness; emotional intelligence is real and useful. You are good at reading people, at understanding the human weight of a choice. The challenge is that in high-stakes moments, your feelings about others can drown out your feelings about yourself. You may know what you want and choose something else anyway because of guilt, loyalty, or the desire not to cause pain. The question worth sitting with is: whose feelings matter in this decision, and in what order?",
+        traits: ['Emotionally intelligent', 'Deeply relational', 'Sometimes self-overriding', 'Empathetic to a cost', 'Learning the order of feelings'],
+        color: '#E07A5F',
+        tagBg: 'rgba(224,122,95,0.15)',
+      },
+      {
+        id: 'foggy',
+        title: 'The Fog Walker',
+        emoji: '🌫️',
+        tagline: 'You are moving. The path is not clear yet.',
+        description: "You are not stuck — you are just not sure which direction is yours yet. A lot of people in the fog confuse it with a personal failing. It is not. Fog comes from living in environments where your own needs and desires were not the priority, where deciding for yourself felt dangerous or pointless. So the skill of clarity — of knowing what you want and moving toward it — simply did not get built. It can be. The first step is not making better decisions. It is noticing, afterwards, how a decision made you feel — and using that as data. The fog lifts slowly, and mostly from the inside.",
+        traits: ['Self-discovering', 'Easily influenced by environment', 'Avoiding decisions to avoid being wrong', 'Growing self-trust', 'Quietly searching'],
         color: '#7a6aa0',
         tagBg: 'rgba(122,106,160,0.12)',
       },

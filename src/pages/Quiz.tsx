@@ -37,8 +37,9 @@ export default function Quiz() {
     )
   }
 
-  // ── Paywall gate for mature quizzes ────────────────────────────────────────
-  if (quiz.mature && !subLoading && !isPro) {
+  // ── Paywall gate for Pro / mature quizzes ─────────────────────────────────
+  if ((quiz.mature || quiz.pro) && !subLoading && !isPro) {
+    const isMature = quiz.mature
     return (
       <div className="min-h-screen flex flex-col items-center justify-center px-5" style={{ background: c.bg }}>
         <div
@@ -50,10 +51,12 @@ export default function Quiz() {
           </div>
           <h2 className="text-xl font-bold mb-2" style={{ fontFamily: F, color: c.forest }}>Koru Pro required</h2>
           <p className="text-sm mb-2" style={{ fontFamily: I, color: c.body, lineHeight: 1.65 }}>
-            <strong style={{ color: c.forest }}>{quiz.title}</strong> is an 18+ quiz available to Pro subscribers.
+            <strong style={{ color: c.forest }}>{quiz.title}</strong> is{isMature ? ' an 18+ quiz' : ' a Pro-exclusive quiz'} available to Pro subscribers.
           </p>
           <p className="text-sm mb-7" style={{ fontFamily: I, color: c.muted, lineHeight: 1.65 }}>
-            Upgrade for ₦2,500/month and get full access to all intimacy & relationship quizzes.
+            {isMature
+              ? 'Upgrade for ₦2,500/month and get full access to all intimacy & relationship quizzes.'
+              : 'Upgrade for ₦2,500/month and unlock all relationship, boundary, and mindset diagnostics.'}
           </p>
           <Link
             to="/upgrade"
