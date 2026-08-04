@@ -1,30 +1,40 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { getAdminApp } from '../_lib/admin'
-import { getAuth } from 'firebase-admin/auth'
+import { getAuth as getAdminAuth } from 'firebase-admin/auth'
 import { getFirestore } from 'firebase-admin/firestore'
+
+const ADMIN_EMAIL = 'pauladamu600@gmail.com'
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', '*')
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS')
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,X-Admin-Key')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization')
 
   if (req.method === 'OPTIONS') { res.status(200).end(); return }
   if (req.method !== 'GET') { res.status(405).json({ error: 'Method not allowed' }); return }
 
-  const adminKey = process.env.ADMIN_PASSWORD
-  if (!adminKey || req.headers['x-admin-key'] !== adminKey) {
-    res.status(401).json({ error: 'Unauthorized' }); return
+  // Verify Firebase ID token
+  const authHeader = req.headers.authorization
+  if (!authHeader?.startsWith('Bearer ')) {
+    res.status(401).json({ error: 'Missing or invalid Authorization header' }); return
   }
+  const idToken = authHeader.slice(7)
 
   try {
     const admin = getAdminApp()
-    const auth = getAuth(admin)
+    const adminAuth = getAdminAuth(admin)
+
+    const decoded = await adminAuth.verifyIdToken(idToken)
+    if (decoded.email !== ADMIN_EMAIL) {
+      res.status(403).json({ error: 'Forbidden' }); return
+    }
+
     const firestore = getFirestore(admin)
 
-    const allUsers: Awaited<ReturnType<typeof auth.listUsers>>['users'] = []
+    const allUsers: Awaited<ReturnType<typeof adminAuth.listUsers>>['users'] = []
     let pageToken: string | undefined
     do {
-      const result = await auth.listUsers(1000, pageToken)
+      const result = await adminAuth.listUsers(1000, pageToken)
       allUsers.push(...result.users)
       pageToken = result.pageToken
     } while (pageToken)
@@ -66,6 +76,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     res.json(enriched)
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unknown error'
+    if (msg.includes('auth/') || msg.includes('token')) {
+      res.status(401).json({ error: 'Invalid or expired token' }); return
+    }
     console.error('[Koru] /api/admin/users error:', msg)
     res.status(500).json({ error: msg })
   }

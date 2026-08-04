@@ -4,17 +4,30 @@ rules_version = '2';
 //
 // Coverage:
 //   /waitlist/{docId}                    — public create (validated), no read
-//   /users/{uid}/profile/main            — authenticated owner only
-//   /users/{uid}/quizResults/{resultId}  — authenticated owner: read + validated create; no update/delete
-//   /users/{uid}/subscription/main       — authenticated owner only
+//   /users/{uid}/profile/main            — owner read/write; admin read
+//   /users/{uid}/quizResults/{resultId}  — owner read + validated create; admin read; no update/delete
+//   /users/{uid}/subscription/main       — owner read/write; admin read
+//   /users/{uid}/checkins/{dateId}       — owner read/create/update; admin read; no delete
 //   everything else                      — deny all
 //
 // "Owner" means: request.auth != null && request.auth.uid == uid
-// Admin reads (e.g. the /api/admin/users endpoint) use Firebase Admin SDK server-side
-// and bypass these rules entirely — no client-side admin access to other users' data.
+// "Admin" means: authenticated as pauladamu600@gmail.com (verified via Google Sign-In)
+// Heavy admin operations (e.g. listing all users) use Firebase Admin SDK server-side
+// and bypass these rules entirely.
 
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    // ── Helper: admin check ───────────────────────────────────────────────────
+    function isAdmin() {
+      return request.auth != null
+        && request.auth.token.email == 'pauladamu600@gmail.com'
+        && request.auth.token.email_verified == true;
+    }
+
+    function isOwner(uid) {
+      return request.auth != null && request.auth.uid == uid;
+    }
 
     // ── Waitlist ──────────────────────────────────────────────────────────────
     // Anyone may submit an email to the waitlist (create only).
@@ -31,25 +44,25 @@ service cloud.firestore {
         request.resource.data.userAgent.size() > 0 &&
         request.resource.data.userAgent.size() <= 512;
 
-      allow read: if false;
+      allow read: if isAdmin();
     }
 
     // ── User profile ──────────────────────────────────────────────────────────
     // Stored at /users/{uid}/profile/main (single document per user).
-    // Only the owning authenticated user may read or write their own profile.
+    // Owner may read and write. Admin may read any profile.
     match /users/{uid}/profile/main {
-      allow read, write: if request.auth != null && request.auth.uid == uid;
+      allow read: if isOwner(uid) || isAdmin();
+      allow write: if isOwner(uid);
     }
 
     // ── Quiz results ──────────────────────────────────────────────────────────
     // Each quiz result is an immutable record created once.
-    // Owners may read their results; they may create new ones (with required fields);
-    // update and delete are permanently blocked to preserve history.
+    // Owners may read their results and create new ones (with required fields).
+    // Admin may read any result. Update and delete are permanently blocked.
     match /users/{uid}/quizResults/{resultId} {
-      allow read: if request.auth != null && request.auth.uid == uid;
+      allow read: if isOwner(uid) || isAdmin();
 
-      allow create: if request.auth != null
-        && request.auth.uid == uid
+      allow create: if isOwner(uid)
         && request.resource.data.keys().hasAll(['quizId', 'quizTitle', 'resultTypeId', 'resultTitle', 'resultEmoji', 'completedAt'])
         && request.resource.data.quizId is string
         && request.resource.data.resultTypeId is string;
@@ -59,21 +72,21 @@ service cloud.firestore {
 
     // ── Subscription ──────────────────────────────────────────────────────────
     // Stored at /users/{uid}/subscription/main (single document per user).
-    // Only the owning authenticated user may read or write their subscription status.
-    // Subscription is also written server-side via Admin SDK after payment verification.
+    // Owner may read and write. Admin may read. Server-side Admin SDK handles
+    // subscription activation after payment verification.
     match /users/{uid}/subscription/main {
-      allow read: if request.auth != null && request.auth.uid == uid;
-      allow write: if request.auth != null && request.auth.uid == uid;
+      allow read: if isOwner(uid) || isAdmin();
+      allow write: if isOwner(uid);
     }
 
     // ── Check-ins ─────────────────────────────────────────────────────────────
     // Stored at /users/{uid}/checkins/{YYYY-MM-DD} — one document per day.
-    // Owners may read, create, and update their own check-ins. Deletes blocked.
+    // Owners may read, create, and update their own check-ins. Admin may read.
+    // Deletes are blocked for everyone.
     match /users/{uid}/checkins/{dateId} {
-      allow read: if request.auth != null && request.auth.uid == uid;
+      allow read: if isOwner(uid) || isAdmin();
 
-      allow create: if request.auth != null
-        && request.auth.uid == uid
+      allow create: if isOwner(uid)
         && request.resource.data.keys().hasAll(['mood', 'energy', 'reflection', 'prompt', 'createdAt'])
         && request.resource.data.mood is string
         && request.resource.data.mood in ['thriving', 'good', 'okay', 'low', 'rough']
@@ -84,8 +97,7 @@ service cloud.firestore {
         && request.resource.data.reflection.size() <= 1000
         && request.resource.data.prompt is string;
 
-      allow update: if request.auth != null
-        && request.auth.uid == uid
+      allow update: if isOwner(uid)
         && request.resource.data.mood is string
         && request.resource.data.mood in ['thriving', 'good', 'okay', 'low', 'rough']
         && request.resource.data.energy is int

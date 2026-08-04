@@ -1,9 +1,13 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { useTheme } from '../context/ThemeContext'
+import { auth, googleProvider, signOut, onAuthStateChanged } from '../firebase'
+import { signInWithPopup, type User } from 'firebase/auth'
 
 const F = "'Plus Jakarta Sans', sans-serif"
 const I = "'Inter', sans-serif"
+
+const ADMIN_EMAIL = 'pauladamu600@gmail.com'
 
 interface AdminUser {
   uid: string
@@ -35,11 +39,10 @@ interface Stats {
 
 export default function Admin() {
   const { c, isDark, toggleTheme } = useTheme()
-  const [authed, setAuthed] = useState(() => !!sessionStorage.getItem('koru-admin-key'))
-  const [adminKey, setAdminKey] = useState(() => sessionStorage.getItem('koru-admin-key') ?? '')
-  const [pwInput, setPwInput] = useState('')
-  const [pwError, setPwError] = useState('')
-  const [pwLoading, setPwLoading] = useState(false)
+  const [adminUser, setAdminUser] = useState<User | null>(null)
+  const [authLoading, setAuthLoading] = useState(true)
+  const [signInError, setSignInError] = useState('')
+  const [signInLoading, setSignInLoading] = useState(false)
 
   const [users, setUsers] = useState<AdminUser[]>([])
   const [loading, setLoading] = useState(false)
@@ -48,36 +51,61 @@ export default function Admin() {
   const [filter, setFilter] = useState<'all' | 'pro' | 'free'>('all')
   const [expandedUid, setExpandedUid] = useState<string | null>(null)
 
-  async function handleLogin(e: React.FormEvent) {
-    e.preventDefault()
-    setPwLoading(true)
-    try {
-      const res = await fetch('/api/admin/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password: pwInput }),
-      })
-      if (res.ok) {
-        sessionStorage.setItem('koru-admin-key', pwInput)
-        setAdminKey(pwInput)
-        setAuthed(true)
+  // Listen for Firebase auth state — auto-restores session on page reload
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, (user) => {
+      if (user && user.email === ADMIN_EMAIL) {
+        setAdminUser(user)
+      } else if (user) {
+        // Signed in but not the admin email — sign out immediately
+        signOut(auth)
+        setAdminUser(null)
+        setSignInError(`Access denied. This dashboard is restricted to ${ADMIN_EMAIL}.`)
       } else {
-        setPwError('Incorrect password.')
+        setAdminUser(null)
       }
-    } catch {
-      setPwError('Could not reach server. Try again.')
+      setAuthLoading(false)
+    })
+    return unsub
+  }, [])
+
+  async function handleGoogleSignIn() {
+    setSignInLoading(true)
+    setSignInError('')
+    try {
+      const result = await signInWithPopup(auth, googleProvider)
+      if (result.user.email !== ADMIN_EMAIL) {
+        await signOut(auth)
+        setSignInError(`Access denied. Only ${ADMIN_EMAIL} can access this dashboard.`)
+      }
+      // onAuthStateChanged will handle setting adminUser if email matches
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Sign-in failed'
+      if (!msg.includes('popup-closed')) {
+        setSignInError('Sign-in failed. Please try again.')
+      }
     } finally {
-      setPwLoading(false)
+      setSignInLoading(false)
     }
   }
 
+  async function handleSignOut() {
+    await signOut(auth)
+    setAdminUser(null)
+    setUsers([])
+  }
+
+  // Fetch users whenever admin session is established
   useEffect(() => {
-    if (!authed) return
+    if (!adminUser) return
     setLoading(true)
     setError('')
-    fetch('/api/admin/users', {
-      headers: { 'X-Admin-Key': adminKey },
-    })
+
+    adminUser.getIdToken().then(token =>
+      fetch('/api/admin/users', {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+    )
       .then(r => {
         if (!r.ok) throw new Error(`Server error ${r.status}`)
         return r.json()
@@ -85,7 +113,7 @@ export default function Admin() {
       .then((data: AdminUser[]) => setUsers(data))
       .catch(err => setError(err.message))
       .finally(() => setLoading(false))
-  }, [authed, adminKey])
+  }, [adminUser])
 
   const stats = useMemo<Stats>(() => ({
     total: users.length,
@@ -109,8 +137,17 @@ export default function Admin() {
     return list
   }, [users, filter, search])
 
-  // ── Password gate ──────────────────────────────────────────────────────────
-  if (!authed) {
+  // ── Loading auth state ──────────────────────────────────────────────────────
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{ background: c.bg }}>
+        <div className="w-8 h-8 rounded-full border-2 animate-spin" style={{ borderColor: 'rgba(162,191,166,0.3)', borderTopColor: '#1B3B2B' }} />
+      </div>
+    )
+  }
+
+  // ── Google sign-in gate ─────────────────────────────────────────────────────
+  if (!adminUser) {
     return (
       <div className="min-h-screen flex items-center justify-center px-4" style={{ background: c.bgGradient }}>
         <div
@@ -121,33 +158,38 @@ export default function Admin() {
             <div className="w-9 h-9 rounded-xl flex items-center justify-center text-lg" style={{ background: '#1B3B2B' }}>🌿</div>
             <span className="font-bold text-sm" style={{ fontFamily: F, color: c.forest }}>Koru Admin</span>
           </div>
+
           <h1 className="text-xl font-bold mb-1" style={{ fontFamily: F, color: c.forest }}>Sign in</h1>
-          <p className="text-xs mb-6" style={{ fontFamily: I, color: c.muted }}>Admin access only.</p>
-          <form onSubmit={handleLogin} className="flex flex-col gap-4">
-            <input
-              type="password"
-              placeholder="Admin password"
-              value={pwInput}
-              onChange={e => { setPwInput(e.target.value); setPwError('') }}
-              className="w-full py-3 px-4 rounded-2xl text-sm outline-none"
-              style={{ fontFamily: I, background: c.input, border: `1.5px solid ${c.inputBorder}`, color: c.inputText }}
-              autoFocus
-            />
-            {pwError && <p className="text-xs" style={{ color: '#E07A5F', fontFamily: I }}>{pwError}</p>}
-            <button
-              type="submit"
-              className="w-full py-3 rounded-2xl text-sm font-semibold text-white"
-              style={{ fontFamily: F, background: '#1B3B2B' }}
-            >
-              Enter →
-            </button>
-          </form>
+          <p className="text-xs mb-8" style={{ fontFamily: I, color: c.muted }}>Admin access only. Use your authorised Google account.</p>
+
+          <button
+            onClick={handleGoogleSignIn}
+            disabled={signInLoading}
+            className="w-full flex items-center justify-center gap-3 py-3.5 rounded-2xl text-sm font-semibold transition-opacity hover:opacity-90 disabled:opacity-50"
+            style={{ fontFamily: F, background: '#1B3B2B', color: '#fff' }}
+          >
+            {signInLoading ? (
+              <span className="w-4 h-4 rounded-full border-2 animate-spin inline-block" style={{ borderColor: 'rgba(255,255,255,0.3)', borderTopColor: '#fff' }} />
+            ) : (
+              <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/>
+                <path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z" fill="#34A853"/>
+                <path d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05"/>
+                <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335"/>
+              </svg>
+            )}
+            {signInLoading ? 'Signing in…' : 'Continue with Google'}
+          </button>
+
+          {signInError && (
+            <p className="text-xs mt-4 text-center" style={{ color: '#E07A5F', fontFamily: I }}>{signInError}</p>
+          )}
         </div>
       </div>
     )
   }
 
-  // ── Admin dashboard ────────────────────────────────────────────────────────
+  // ── Admin dashboard ─────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen" style={{ background: c.bg }}>
       {/* Nav */}
@@ -161,6 +203,7 @@ export default function Admin() {
           <span className="text-xs px-2 py-0.5 rounded-full" style={{ fontFamily: I, background: 'rgba(224,122,95,0.12)', color: '#E07A5F' }}>Private</span>
         </div>
         <div className="flex items-center gap-3">
+          <span className="hidden sm:block text-xs" style={{ fontFamily: I, color: c.muted }}>{adminUser.email}</span>
           <button
             onClick={toggleTheme}
             className="w-8 h-8 rounded-xl flex items-center justify-center text-base transition-opacity hover:opacity-60"
@@ -172,7 +215,7 @@ export default function Admin() {
             ← App
           </Link>
           <button
-            onClick={() => { sessionStorage.removeItem('koru-admin-key'); setAdminKey(''); setAuthed(false) }}
+            onClick={handleSignOut}
             className="text-xs font-medium transition-opacity hover:opacity-60"
             style={{ fontFamily: I, color: c.muted }}
           >
@@ -365,7 +408,7 @@ export default function Admin() {
   )
 }
 
-// ── Sub-components ─────────────────────────────────────────────────────────────
+// ── Sub-components ──────────────────────────────────────────────────────────────
 
 function Avatar({ name }: { name: string }) {
   const initials = name

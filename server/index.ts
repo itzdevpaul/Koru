@@ -177,16 +177,23 @@ app.post('/api/subscribe/verify', async (req, res) => {
 })
 
 // ── Admin: list all users ─────────────────────────────────────────────────────
+const ADMIN_EMAIL = 'pauladamu600@gmail.com'
+
 app.get('/api/admin/users', async (req, res) => {
   try {
-    const adminKey = process.env.ADMIN_PASSWORD
-    if (!adminKey || req.headers['x-admin-key'] !== adminKey) {
-      res.status(401).json({ error: 'Unauthorized' }); return
+    const authHeader = req.headers.authorization
+    if (!authHeader?.startsWith('Bearer ')) {
+      res.status(401).json({ error: 'Missing or invalid Authorization header' }); return
+    }
+    const idToken = authHeader.slice(7)
+    const adminApp = getAdminApp()
+    const decoded = await getAuth(adminApp).verifyIdToken(idToken)
+    if (decoded.email !== ADMIN_EMAIL) {
+      res.status(403).json({ error: 'Forbidden' }); return
     }
 
-    const admin = getAdminApp()
-    const auth = getAuth(admin)
-    const firestore = getFirestore(admin)
+    const auth = getAuth(adminApp)
+    const firestore = getFirestore(adminApp)
 
     // List all Auth users (paginate up to 1000)
     const allUsers: Awaited<ReturnType<typeof auth.listUsers>>['users'] = []
