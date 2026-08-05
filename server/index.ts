@@ -255,6 +255,60 @@ app.get('/api/admin/users', async (req, res) => {
 })
 
 // ── Admin: verify password (never exposes the secret to the client) ───────────
+// ── Admin: grant Pro to a user ────────────────────────────────────────────────
+app.post('/api/admin/grant-pro', async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization
+    if (!authHeader?.startsWith('Bearer ')) { res.status(401).json({ error: 'Unauthorized' }); return }
+    const decoded = await getAuth(getAdminApp()).verifyIdToken(authHeader.slice(7))
+    if (decoded.email !== ADMIN_EMAIL) { res.status(403).json({ error: 'Forbidden' }); return }
+
+    const { uid, days } = req.body as { uid: string; days: number }
+    if (!uid || !days || days < 1) { res.status(400).json({ error: 'uid and days (≥1) required' }); return }
+
+    const expiresAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000)
+    const firestore = getFirestore(getAdminApp())
+    await firestore.doc(`users/${uid}/subscription/main`).set({
+      active: true,
+      expiresAt,
+      grantedByAdmin: true,
+      grantedAt: new Date(),
+    }, { merge: true })
+
+    res.json({ ok: true, expiresAt: expiresAt.toISOString() })
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Unknown error'
+    console.error('[Koru] /api/admin/grant-pro error:', msg)
+    res.status(500).json({ error: msg })
+  }
+})
+
+// ── Admin: revoke Pro from a user ─────────────────────────────────────────────
+app.post('/api/admin/revoke-pro', async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization
+    if (!authHeader?.startsWith('Bearer ')) { res.status(401).json({ error: 'Unauthorized' }); return }
+    const decoded = await getAuth(getAdminApp()).verifyIdToken(authHeader.slice(7))
+    if (decoded.email !== ADMIN_EMAIL) { res.status(403).json({ error: 'Forbidden' }); return }
+
+    const { uid } = req.body as { uid: string }
+    if (!uid) { res.status(400).json({ error: 'uid required' }); return }
+
+    const firestore = getFirestore(getAdminApp())
+    await firestore.doc(`users/${uid}/subscription/main`).set({
+      active: false,
+      revokedByAdmin: true,
+      revokedAt: new Date(),
+    }, { merge: true })
+
+    res.json({ ok: true })
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Unknown error'
+    console.error('[Koru] /api/admin/revoke-pro error:', msg)
+    res.status(500).json({ error: msg })
+  }
+})
+
 app.post('/api/admin/login', (req, res) => {
   const { password } = req.body as { password?: string }
   const adminKey = process.env.ADMIN_PASSWORD

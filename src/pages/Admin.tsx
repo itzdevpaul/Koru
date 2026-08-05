@@ -53,6 +53,10 @@ export default function Admin() {
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState<'all' | 'pro' | 'free'>('all')
   const [expandedUid, setExpandedUid] = useState<string | null>(null)
+  const [grantingUid, setGrantingUid] = useState<string | null>(null)
+  const [grantDays, setGrantDays] = useState(30)
+  const [grantLoading, setGrantLoading] = useState(false)
+  const [grantMsg, setGrantMsg] = useState<{ uid: string; text: string; ok: boolean } | null>(null)
 
   // Ads tab
   const [ads, setAds] = useState<Ad[]>([])
@@ -104,6 +108,59 @@ export default function Admin() {
     await signOut(auth)
     setAdminUser(null)
     setUsers([])
+  }
+
+  async function handleGrantPro(uid: string) {
+    if (!adminUser) return
+    setGrantLoading(true)
+    setGrantMsg(null)
+    try {
+      const token = await adminUser.getIdToken()
+      const r = await fetch('/api/admin/grant-pro', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ uid, days: grantDays }),
+      })
+      const data = await r.json()
+      if (!r.ok) throw new Error(data.error ?? `Server error ${r.status}`)
+      // Update local state so the row reflects the change immediately
+      setUsers(prev => prev.map(u =>
+        u.uid === uid
+          ? { ...u, subscription: { active: true, expiresAt: data.expiresAt } }
+          : u
+      ))
+      setGrantMsg({ uid, text: `✓ Pro granted until ${new Date(data.expiresAt).toLocaleDateString()}`, ok: true })
+      setGrantingUid(null)
+    } catch (err) {
+      setGrantMsg({ uid, text: err instanceof Error ? err.message : 'Failed', ok: false })
+    } finally {
+      setGrantLoading(false)
+    }
+  }
+
+  async function handleRevokePro(uid: string) {
+    if (!adminUser || !confirm('Revoke Pro access for this user?')) return
+    setGrantLoading(true)
+    setGrantMsg(null)
+    try {
+      const token = await adminUser.getIdToken()
+      const r = await fetch('/api/admin/revoke-pro', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ uid }),
+      })
+      if (!r.ok) { const d = await r.json(); throw new Error(d.error ?? `Server error ${r.status}`) }
+      setUsers(prev => prev.map(u =>
+        u.uid === uid
+          ? { ...u, subscription: { active: false, expiresAt: null } }
+          : u
+      ))
+      setGrantMsg({ uid, text: '✓ Pro revoked', ok: true })
+    } catch (err) {
+      setGrantMsg({ uid, text: err instanceof Error ? err.message : 'Failed', ok: false })
+    } finally {
+      setGrantLoading(false)
+    }
   }
 
   // Fetch users whenever admin session is established
@@ -403,6 +460,73 @@ export default function Admin() {
                       <Row label="Status" value={user.subscription?.active ? '⭐ Pro' : 'Free'} />
                       <Row label="Expires" value={user.subscription?.expiresAt ? fmtDateFull(user.subscription.expiresAt) : '—'} />
                       <Row label="Quizzes taken" value={String(user.quizCount)} />
+
+                      {/* ── Grant / Revoke Pro ── */}
+                      <div className="mt-3 pt-3" style={{ borderTop: `1px dashed ${c.cardBorder}` }}>
+                        {grantingUid === user.uid ? (
+                          <div className="flex flex-col gap-2">
+                            <p className="text-xs font-semibold" style={{ fontFamily: F, color: c.forest }}>Grant Pro for:</p>
+                            <div className="flex gap-1.5 flex-wrap">
+                              {[7, 30, 90, 365].map(d => (
+                                <button
+                                  key={d}
+                                  onClick={() => setGrantDays(d)}
+                                  className="px-2.5 py-1 rounded-lg text-xs font-semibold transition-all"
+                                  style={{
+                                    background: grantDays === d ? '#1B3B2B' : c.surface,
+                                    color: grantDays === d ? '#fff' : c.forest,
+                                    fontFamily: I,
+                                  }}
+                                >
+                                  {d === 365 ? '1 yr' : `${d}d`}
+                                </button>
+                              ))}
+                            </div>
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => handleGrantPro(user.uid)}
+                                disabled={grantLoading}
+                                className="flex-1 py-1.5 rounded-lg text-xs font-semibold transition-opacity disabled:opacity-50"
+                                style={{ background: '#1B3B2B', color: '#fff', fontFamily: F }}
+                              >
+                                {grantLoading ? 'Saving…' : 'Confirm'}
+                              </button>
+                              <button
+                                onClick={() => { setGrantingUid(null); setGrantMsg(null) }}
+                                className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-opacity hover:opacity-60"
+                                style={{ background: c.surface, color: c.muted, fontFamily: I }}
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => { setGrantingUid(user.uid); setGrantDays(30); setGrantMsg(null) }}
+                              className="flex-1 py-1.5 rounded-lg text-xs font-semibold transition-opacity hover:opacity-80"
+                              style={{ background: '#1B3B2B', color: '#fff', fontFamily: F }}
+                            >
+                              {user.subscription?.active ? 'Extend Pro' : 'Grant Pro'}
+                            </button>
+                            {user.subscription?.active && (
+                              <button
+                                onClick={() => handleRevokePro(user.uid)}
+                                disabled={grantLoading}
+                                className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-opacity hover:opacity-80 disabled:opacity-50"
+                                style={{ background: 'rgba(224,122,95,0.12)', color: '#E07A5F', fontFamily: F }}
+                              >
+                                Revoke
+                              </button>
+                            )}
+                          </div>
+                        )}
+                        {grantMsg?.uid === user.uid && (
+                          <p className="text-xs mt-2" style={{ fontFamily: I, color: grantMsg.ok ? '#1B3B2B' : '#E07A5F' }}>
+                            {grantMsg.text}
+                          </p>
+                        )}
+                      </div>
                     </DetailCard>
                   </div>
                 )}
