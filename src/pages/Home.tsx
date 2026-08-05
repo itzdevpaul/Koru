@@ -46,6 +46,8 @@ export default function Home() {
   const [checkInSaving, setCheckInSaving] = useState(false)
   const [checkInSharing, setCheckInSharing] = useState(false)
   const [checkInShareMsg, setCheckInShareMsg] = useState('')
+  const [showFriendNudge, setShowFriendNudge] = useState(false)
+  const [nudgeCopied, setNudgeCopied] = useState(false)
 
   const firstName = user?.displayName?.split(' ')[0] ?? 'there'
 
@@ -89,8 +91,17 @@ export default function Home() {
     navigate('/signin')
   }
 
+  function isMeaningfulCheckIn(mood: MoodKey, energy: number, reflection: string): boolean {
+    return (
+      mood === 'thriving' || mood === 'good' ||
+      energy >= 4 ||
+      reflection.trim().length >= 20
+    )
+  }
+
   async function handleSaveCheckIn() {
     if (!user || !checkInMood || checkInEnergy === 0) return
+    const isNew = !todayCheckIn  // distinguish first save vs edit
     setCheckInSaving(true)
     await saveCheckIn(user.uid, {
       mood: checkInMood,
@@ -101,6 +112,39 @@ export default function Home() {
     setTodayCheckIn({ mood: checkInMood, energy: checkInEnergy, reflection: checkInReflection.trim(), prompt: todayPrompt })
     setEditingCheckIn(false)
     setCheckInSaving(false)
+
+    // Show friend nudge only on first save of a meaningful session (once per day)
+    const dismissed = sessionStorage.getItem('koru-friend-nudge-dismissed')
+    if (isNew && !dismissed && isMeaningfulCheckIn(checkInMood, checkInEnergy, checkInReflection.trim())) {
+      setShowFriendNudge(true)
+    }
+  }
+
+  function handleDismissNudge() {
+    setShowFriendNudge(false)
+    sessionStorage.setItem('koru-friend-nudge-dismissed', '1')
+  }
+
+  async function handleNudgeShare() {
+    const link = `https://koru.com.ng/signup?ref=${user?.uid?.slice(0, 8) ?? ''}`
+    const text = `I've been using Koru to check in with myself — you should try it. ${link}`
+    if (navigator.share) {
+      try { await navigator.share({ title: 'Join me on Koru', text }); return } catch { /* cancelled */ }
+    }
+    try {
+      await navigator.clipboard.writeText(link)
+      setNudgeCopied(true)
+      setTimeout(() => setNudgeCopied(false), 2500)
+    } catch { /* ignore */ }
+  }
+
+  async function handleNudgeCopy() {
+    const link = `https://koru.com.ng/signup?ref=${user?.uid?.slice(0, 8) ?? ''}`
+    try {
+      await navigator.clipboard.writeText(link)
+      setNudgeCopied(true)
+      setTimeout(() => setNudgeCopied(false), 2500)
+    } catch { /* ignore */ }
   }
 
   function startEditCheckIn(existing?: CheckIn) {
@@ -500,6 +544,91 @@ export default function Home() {
                 </div>
               </div>
             )}
+          </section>
+        )}
+
+        {/* ── Bring a friend nudge ────────────────────────────────────────── */}
+        {showFriendNudge && (
+          <section className="mb-6 animate-fade-up">
+            <div
+              className="rounded-3xl px-5 py-4"
+              style={{
+                background: isDark
+                  ? 'rgba(162,191,166,0.09)'
+                  : 'rgba(162,191,166,0.14)',
+                border: `1px solid rgba(162,191,166,0.28)`,
+              }}
+            >
+              <div className="flex items-start justify-between gap-3">
+                {/* Text + actions */}
+                <div className="flex items-start gap-3 min-w-0">
+                  <span className="text-xl flex-shrink-0 mt-0.5">🌱</span>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold leading-snug mb-0.5" style={{ fontFamily: F, color: c.forest }}>
+                      Know someone who needs this?
+                    </p>
+                    <p className="text-xs leading-relaxed mb-3" style={{ fontFamily: I, color: c.body }}>
+                      You just had a real check-in. The people who'd benefit most never think to look for something like Koru — until a friend sends it.
+                    </p>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {/* Primary: copy link */}
+                      <button
+                        onClick={handleNudgeCopy}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all duration-200 hover:opacity-80 active:scale-[0.97]"
+                        style={{
+                          background: nudgeCopied ? 'rgba(162,191,166,0.35)' : '#1B3B2B',
+                          color: nudgeCopied ? c.forest : '#FBF9F5',
+                          fontFamily: F,
+                        }}
+                      >
+                        {nudgeCopied ? (
+                          <>
+                            <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                              <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+                            </svg>
+                            Copied!
+                          </>
+                        ) : (
+                          <>
+                            <svg width="11" height="11" viewBox="0 0 15 15" fill="none" aria-hidden="true">
+                              <rect x="3" y="1" width="9" height="11" rx="1.5" stroke="currentColor" strokeWidth="1.4"/>
+                              <rect x="1" y="3" width="9" height="11" rx="1.5" stroke="currentColor" strokeWidth="1.4" fill={isDark ? '#1B3B2B' : '#1B3B2B'}/>
+                            </svg>
+                            Copy invite link
+                          </>
+                        )}
+                      </button>
+
+                      {/* Secondary: native share */}
+                      {typeof navigator !== 'undefined' && 'share' in navigator && (
+                        <button
+                          onClick={handleNudgeShare}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all duration-200 hover:opacity-70"
+                          style={{ fontFamily: I, color: c.muted, background: 'transparent' }}
+                        >
+                          <svg width="11" height="11" viewBox="0 0 15 15" fill="none" aria-hidden="true">
+                            <path d="M10.5 2.5a2 2 0 1 1 0 4 2 2 0 0 1 0-4ZM4.5 6.5a2 2 0 1 1 0 4 2 2 0 0 1 0-4Zm6 3a2 2 0 1 1 0 4 2 2 0 0 1 0-4ZM6 8.5l3-1.5M9 9l-3 1.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+                          </svg>
+                          Share
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Dismiss */}
+                <button
+                  onClick={handleDismissNudge}
+                  className="flex-shrink-0 mt-0.5 transition-opacity hover:opacity-40"
+                  style={{ color: c.muted, lineHeight: 1 }}
+                  aria-label="Dismiss"
+                >
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                    <path d="M1 1l12 12M13 1L1 13" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
           </section>
         )}
 
