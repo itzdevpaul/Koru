@@ -1,16 +1,16 @@
 import { useState } from 'react'
 import { useTheme } from '../context/ThemeContext'
+import { generateFutureSelfImage, shareOrDownloadImage } from '../utils/shareImage'
 import type { SavedQuizResult } from '../firebase'
 
 const F = "'Plus Jakarta Sans', sans-serif"
 const I = "'Inter', sans-serif"
 
 interface Props {
-  // Surfacing mode — showing an old intention
   mode: 'surface' | 'prompt'
-  intention?: string          // text of the old intention (surface mode)
-  intentionDate?: string      // when it was set e.g. "3 months ago"
-  results?: SavedQuizResult[] // current quiz results to show "who you are now"
+  intention?: string
+  intentionDate?: string
+  results?: SavedQuizResult[]
   streak?: number
   onDismiss: () => void
   onSaveNew: (text: string) => Promise<void>
@@ -31,6 +31,8 @@ export default function FutureSelfCard({
   const [phase, setPhase] = useState<'view' | 'write'>('view')
   const [text, setText] = useState('')
   const [saving, setSaving] = useState(false)
+  const [sharing, setSharing] = useState(false)
+  const [shareMsg, setShareMsg] = useState('')
 
   async function handleSave() {
     if (!text.trim()) return
@@ -39,7 +41,30 @@ export default function FutureSelfCard({
     setSaving(false)
   }
 
-  // ── Prompt mode: no old intention, just invite them to write one ──
+  async function handleShare() {
+    if (!intention || sharing) return
+    setSharing(true)
+    setShareMsg('')
+    try {
+      const blob = await generateFutureSelfImage({
+        intention,
+        intentionDate: intentionDate ?? 'a while ago',
+        results: results.slice(0, 4).map(r => ({ emoji: r.resultEmoji, title: r.resultTitle })),
+        streak,
+      })
+      const outcome = await shareOrDownloadImage(blob, 'koru-future-self.png', 'My Koru Future Self check-in')
+      if (outcome === 'downloaded') { setShareMsg('Image saved!') }
+      else if (outcome === 'error') { setShareMsg('Unable to save — try again.') }
+      setTimeout(() => setShareMsg(''), 3000)
+    } catch {
+      setShareMsg('Something went wrong.')
+      setTimeout(() => setShareMsg(''), 3000)
+    } finally {
+      setSharing(false)
+    }
+  }
+
+  // ── Prompt mode ───────────────────────────────────────────────────────────
   if (mode === 'prompt') {
     return (
       <section className="mb-8 animate-fade-up">
@@ -116,7 +141,7 @@ export default function FutureSelfCard({
     )
   }
 
-  // ── Surface mode: show the old intention alongside current state ──
+  // ── Surface mode ──────────────────────────────────────────────────────────
   return (
     <section className="mb-8 animate-fade-up">
       <div
@@ -156,7 +181,7 @@ export default function FutureSelfCard({
           </blockquote>
         </div>
 
-        {/* Body: who you are now */}
+        {/* Body */}
         <div className="px-6 py-5" style={{ background: isDark ? 'rgba(27,59,43,0.18)' : '#fff' }}>
           <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ fontFamily: I, color: c.sage }}>
             Who you are now
@@ -183,11 +208,33 @@ export default function FutureSelfCard({
           {phase === 'view' && (
             <div className="flex items-center gap-3 flex-wrap">
               <button
+                onClick={handleShare}
+                disabled={sharing}
+                className="flex items-center gap-1.5 py-2 px-4 rounded-xl text-xs font-semibold transition-all duration-200 hover:opacity-80 active:scale-95 disabled:opacity-50"
+                style={{ fontFamily: F, background: c.surface, color: c.forest, border: `1.5px solid ${c.cardBorder}` }}
+              >
+                {sharing ? (
+                  <>
+                    <svg className="animate-spin" width="12" height="12" viewBox="0 0 24 24" fill="none">
+                      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeDasharray="32" strokeDashoffset="12" strokeLinecap="round" />
+                    </svg>
+                    Creating image…
+                  </>
+                ) : (
+                  <>
+                    <svg width="12" height="12" viewBox="0 0 15 15" fill="none">
+                      <path d="M10.5 2.5a2 2 0 1 1 0 4 2 2 0 0 1 0-4ZM4.5 6.5a2 2 0 1 1 0 4 2 2 0 0 1 0-4Zm6 3a2 2 0 1 1 0 4 2 2 0 0 1 0-4ZM6 8.5l3-1.5M9 9l-3 1.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+                    </svg>
+                    Save as image
+                  </>
+                )}
+              </button>
+              <button
                 onClick={() => {
                   setPhase('write')
                   onMarkSurfaced?.()
                 }}
-                className="py-2.5 px-5 rounded-2xl text-sm font-semibold text-white transition-all duration-200 hover:opacity-90 active:scale-[0.98]"
+                className="py-2 px-4 rounded-xl text-xs font-semibold text-white transition-all duration-200 hover:opacity-90 active:scale-95"
                 style={{ fontFamily: F, background: '#1B3B2B' }}
               >
                 Write a new one →
@@ -197,12 +244,16 @@ export default function FutureSelfCard({
                   onMarkSurfaced?.()
                   onDismiss()
                 }}
-                className="text-sm transition-opacity hover:opacity-60"
+                className="text-xs transition-opacity hover:opacity-60"
                 style={{ fontFamily: I, color: c.muted }}
               >
                 Reflect quietly
               </button>
             </div>
+          )}
+
+          {shareMsg && (
+            <p className="text-xs mt-2" style={{ fontFamily: I, color: c.muted }}>{shareMsg}</p>
           )}
 
           {phase === 'write' && (

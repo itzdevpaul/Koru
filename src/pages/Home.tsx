@@ -3,14 +3,14 @@ import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
 import { useSubscription } from '../context/SubscriptionContext'
-import { logOut, getQuizResults, updateStreak, getUserProfile, updateUserProfile, sendReminderEmail, saveCheckIn, getTodayCheckIn, getTodayPrompt, MOOD_OPTIONS, getActiveAd, saveIntention, markIntentionSurfaced, getRecentCheckIns, type SavedQuizResult, type CheckIn, type MoodKey, type Ad, type UserProfile } from '../firebase'
+import { logOut, getQuizResults, updateStreak, getUserProfile, updateUserProfile, sendReminderEmail, saveCheckIn, getTodayCheckIn, getTodayPrompt, MOOD_OPTIONS, getActiveAd, saveIntention, markIntentionSurfaced, getRecentCheckIns, getRecentMoodMatches, type SavedQuizResult, type CheckIn, type MoodKey, type Ad, type UserProfile, type MoodMatch } from '../firebase'
 import { generateCheckInShareImage, shareOrDownloadImage } from '../utils/shareImage'
 import { quizzes, insightCombinations } from '../data/quizzes'
 import AdModal from '../components/AdModal'
 import PatternMirrorCard from '../components/PatternMirrorCard'
 import MoodQuizMatcher from '../components/MoodQuizMatcher'
 import FutureSelfCard from '../components/FutureSelfCard'
-import { analyzePatterns } from '../utils/patternMirror'
+import { analyzePatterns, getSeenPatternIds, markPatternsSeen } from '../utils/patternMirror'
 
 const F = "'Plus Jakarta Sans', sans-serif"
 const I = "'Inter', sans-serif"
@@ -65,6 +65,9 @@ export default function Home() {
   // ── Pattern mirror ──
   const [patternCheckIns, setPatternCheckIns] = useState<Array<CheckIn & { date: string }>>([])
 
+  // ── Mood-to-quiz match history ──
+  const [moodMatches, setMoodMatches] = useState<MoodMatch[]>([])
+
   const firstName = user?.displayName?.split(' ')[0] ?? 'there'
 
   useEffect(() => {
@@ -88,8 +91,10 @@ export default function Home() {
         if (daysSince >= 90) setShowFutureSelf(true)
       }
     }).catch(() => {})
-    // Load recent check-ins for pattern mirror
-    getRecentCheckIns(user.uid, 5).then(setPatternCheckIns).catch(() => {})
+    // Load recent check-ins for pattern mirror (14 for trend detection)
+    getRecentCheckIns(user.uid, 14).then(setPatternCheckIns).catch(() => {})
+    // Load mood match history for the quiz matcher
+    getRecentMoodMatches(user.uid, 30).then(setMoodMatches).catch(() => {})
   }, [user])
 
   // ── Weekly reminder: fire once on mount if opted in and 7+ days since last send ──
@@ -254,7 +259,8 @@ export default function Home() {
     return months >= 2 ? `${months} months ago` : 'about 3 months ago'
   }
 
-  const patternObservations = analyzePatterns(patternCheckIns)
+  const allPatternObs = analyzePatterns(patternCheckIns)
+  const patternObservations = allPatternObs.filter(o => !getSeenPatternIds().includes(o.id))
 
   return (
     <div className="min-h-screen" style={{ background: c.bg, transition: 'background 0.25s' }}>
@@ -725,7 +731,10 @@ export default function Home() {
 
         {/* ── Pattern mirror ── */}
         {patternObservations.length > 0 && (
-          <PatternMirrorCard observations={patternObservations} />
+          <PatternMirrorCard
+            observations={patternObservations}
+            onDismiss={() => markPatternsSeen(patternObservations.map(o => o.id))}
+          />
         )}
 
         {/* ── Growth card (Pro only) ── */}
@@ -825,7 +834,7 @@ export default function Home() {
         )}
 
         {/* ── Mood-to-quiz matcher ── */}
-        <MoodQuizMatcher results={results} />
+        <MoodQuizMatcher results={results} moodMatchHistory={moodMatches} />
 
         {/* ── Quizzes ── */}
         <section className="mb-12">

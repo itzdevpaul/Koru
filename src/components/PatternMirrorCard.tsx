@@ -7,13 +7,19 @@ const I = "'Inter', sans-serif"
 
 interface Props {
   observations: PatternObservation[]
+  onDismiss?: () => void
 }
 
-export default function PatternMirrorCard({ observations }: Props) {
+export default function PatternMirrorCard({ observations, onDismiss }: Props) {
   const { c, isDark } = useTheme()
   const [dismissed, setDismissed] = useState(false)
 
   if (dismissed || observations.length === 0) return null
+
+  function handleDismiss() {
+    setDismissed(true)
+    onDismiss?.()
+  }
 
   return (
     <section className="mb-8 animate-fade-up">
@@ -33,14 +39,12 @@ export default function PatternMirrorCard({ observations }: Props) {
             >
               🪞
             </div>
-            <div>
-              <p className="text-xs font-bold uppercase tracking-widest" style={{ fontFamily: I, color: c.sage }}>
-                Pattern Mirror
-              </p>
-            </div>
+            <p className="text-xs font-bold uppercase tracking-widest" style={{ fontFamily: I, color: c.sage }}>
+              Pattern Mirror
+            </p>
           </div>
           <button
-            onClick={() => setDismissed(true)}
+            onClick={handleDismiss}
             className="flex-shrink-0 transition-opacity hover:opacity-40 mt-0.5"
             style={{ color: c.muted, lineHeight: 1 }}
             aria-label="Dismiss"
@@ -67,20 +71,14 @@ export default function PatternMirrorCard({ observations }: Props) {
               <span className="flex-shrink-0 text-sm mt-0.5">
                 {obs.type === 'positive' ? '✨' : '💭'}
               </span>
-              <p
-                className="text-sm leading-relaxed"
-                style={{ fontFamily: I, color: c.body }}
-              >
+              <p className="text-sm leading-relaxed" style={{ fontFamily: I, color: c.body }}>
                 {obs.message}
               </p>
             </div>
           ))}
         </div>
 
-        <p
-          className="text-xs mt-4 leading-relaxed"
-          style={{ fontFamily: I, color: c.muted }}
-        >
+        <p className="text-xs mt-4 leading-relaxed" style={{ fontFamily: I, color: c.muted }}>
           Based on your recent reflections — descriptive only, never diagnostic.
         </p>
       </div>

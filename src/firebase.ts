@@ -495,6 +495,32 @@ export async function markClarityCardSeen(uid: string): Promise<void> {
   } catch { /* non-critical */ }
 }
 
+// ── Mood-to-quiz match history ───────────────────────────────────────────────
+
+export interface MoodMatch {
+  feelingId: string
+  quizId: string
+  completedAt: Timestamp | null
+}
+
+export async function saveMoodMatch(uid: string, feelingId: string, quizId: string): Promise<void> {
+  await addDoc(collection(db, 'users', uid, 'moodMatches'), {
+    feelingId,
+    quizId,
+    completedAt: serverTimestamp(),
+  })
+}
+
+export async function getRecentMoodMatches(uid: string, n = 20): Promise<MoodMatch[]> {
+  const snap = await withTimeout(
+    getDocs(
+      query(collection(db, 'users', uid, 'moodMatches'), orderBy('completedAt', 'desc'), limit(n)),
+    ),
+    8_000,
+  )
+  return snap.docs.map(d => d.data() as MoodMatch)
+}
+
 // ── Waitlist (legacy) ───────────────────────────────────────────────────────
 
 export type WaitlistResult =

@@ -429,6 +429,181 @@ export async function generateClarityDeltaImage(data: {
   return new Promise(resolve => canvas.toBlob(blob => resolve(blob!), 'image/png', 1.0))
 }
 
+// ── Future Self card (1080×1350 portrait) ────────────────────────────────────
+export async function generateFutureSelfImage(data: {
+  intention: string
+  intentionDate: string
+  results: { emoji: string; title: string }[]
+  streak: number
+}): Promise<Blob> {
+  await document.fonts.ready
+
+  const W = 1080
+  const H = 1350
+  const canvas = document.createElement('canvas')
+  canvas.width = W
+  canvas.height = H
+  const ctx = canvas.getContext('2d')!
+  ctx.imageSmoothingEnabled = true
+  ctx.imageSmoothingQuality = 'high'
+
+  const headerH = H * 0.50
+
+  // ── Header: dark forest ────────────────────────────────────────────────────
+  const hGrad = ctx.createLinearGradient(0, 0, W, headerH)
+  hGrad.addColorStop(0, '#1B3B2B')
+  hGrad.addColorStop(1, '#243d2f')
+  ctx.fillStyle = hGrad
+  ctx.fillRect(0, 0, W, headerH)
+
+  // Radial glow
+  const glow = ctx.createRadialGradient(W * 0.2, H * 0.08, 0, W * 0.2, H * 0.08, W * 0.65)
+  glow.addColorStop(0, 'rgba(162,191,166,0.16)')
+  glow.addColorStop(1, 'rgba(0,0,0,0)')
+  ctx.fillStyle = glow
+  ctx.fillRect(0, 0, W, headerH)
+
+  // ── Body: cream ────────────────────────────────────────────────────────────
+  ctx.fillStyle = CREAM
+  ctx.fillRect(0, headerH, W, H - headerH)
+
+  // Body subtle glow
+  const bodyGlow = ctx.createRadialGradient(W * 0.85, H * 0.82, 0, W * 0.85, H * 0.82, W * 0.5)
+  bodyGlow.addColorStop(0, 'rgba(162,191,166,0.14)')
+  bodyGlow.addColorStop(1, 'rgba(251,249,245,0)')
+  ctx.fillStyle = bodyGlow
+  ctx.fillRect(0, headerH, W, H - headerH)
+
+  // Outer border
+  ctx.strokeStyle = 'rgba(162,191,166,0.2)'
+  ctx.lineWidth = 3
+  roundRect(ctx, 40, 40, W - 80, H - 80, 56)
+  ctx.stroke()
+
+  // ── Header content ─────────────────────────────────────────────────────────
+  ctx.textAlign = 'left'
+  ctx.textBaseline = 'middle'
+
+  // Label
+  ctx.fillStyle = SAGE
+  ctx.font = `600 26px "Plus Jakarta Sans", "Inter", sans-serif`
+  ctx.fillText('FUTURE SELF CHECK-IN · KORU', 90, 108)
+
+  // Date badge
+  ctx.fillStyle = 'rgba(162,191,166,0.18)'
+  roundRect(ctx, 90, 140, ctx.measureText(data.intentionDate).width + 40, 48, 14)
+  ctx.fill()
+  ctx.fillStyle = 'rgba(162,191,166,0.9)'
+  ctx.font = `500 24px "Inter", sans-serif`
+  ctx.fillText(data.intentionDate, 110, 164)
+
+  // "You wrote this to yourself:"
+  ctx.fillStyle = 'rgba(255,255,255,0.75)'
+  ctx.font = `400 30px "Inter", sans-serif`
+  ctx.fillText('You wrote this to yourself:', 90, 240)
+
+  // Intention quote block
+  const quoteX = 90
+  const quoteY = 280
+  const quoteW = W - 180
+  const maxQuoteH = 340
+
+  ctx.fillStyle = 'rgba(255,255,255,0.07)'
+  roundRect(ctx, quoteX, quoteY, quoteW, maxQuoteH, 28)
+  ctx.fill()
+  ctx.strokeStyle = 'rgba(162,191,166,0.3)'
+  ctx.lineWidth = 3
+  ctx.beginPath()
+  ctx.moveTo(quoteX, quoteY + 28)
+  ctx.lineTo(quoteX, quoteY + maxQuoteH - 28)
+  ctx.stroke()
+
+  ctx.fillStyle = 'rgba(255,255,255,0.88)'
+  ctx.font = `italic 400 34px "Inter", sans-serif`
+  const quotedText = `"${data.intention}"`
+  const quoteLines = wrapText(ctx, quotedText, quoteW - 60)
+  const lineH = 50
+  const totalTextH = quoteLines.length * lineH
+  const quoteTextTop = quoteY + (maxQuoteH - totalTextH) / 2
+
+  quoteLines.slice(0, 6).forEach((line, i) => {
+    ctx.fillText(line, quoteX + 36, quoteTextTop + lineH * i + lineH / 2)
+  })
+
+  // ── Body content ──────────────────────────────────────────────────────────
+  const bodyTop = headerH + 56
+  ctx.textAlign = 'left'
+
+  // "Who you are now" label
+  ctx.fillStyle = SAGE
+  ctx.font = `600 24px "Plus Jakarta Sans", "Inter", sans-serif`
+  ctx.fillText('WHO YOU ARE NOW', 90, bodyTop)
+
+  // Result tags
+  let tagX = 90
+  const tagY = bodyTop + 52
+  const tagH = 68
+
+  const tagsToShow = data.results.slice(0, 4)
+  if (tagsToShow.length === 0) {
+    ctx.fillStyle = 'rgba(27,59,43,0.35)'
+    ctx.font = `400 28px "Inter", sans-serif`
+    ctx.fillText('No quiz results yet', tagX, tagY + tagH / 2)
+  } else {
+    for (const r of tagsToShow) {
+      const label = `${r.emoji} ${r.title}`
+      ctx.font = `500 26px "Inter", sans-serif`
+      const tagW = ctx.measureText(label).width + 44
+
+      if (tagX + tagW > W - 90) {
+        tagX = 90
+      }
+
+      ctx.fillStyle = 'rgba(27,59,43,0.07)'
+      roundRect(ctx, tagX, tagY, tagW, tagH, 20)
+      ctx.fill()
+      ctx.strokeStyle = 'rgba(27,59,43,0.12)'
+      ctx.lineWidth = 1.5
+      roundRect(ctx, tagX, tagY, tagW, tagH, 20)
+      ctx.stroke()
+
+      ctx.fillStyle = FOREST
+      ctx.fillText(label, tagX + 22, tagY + tagH / 2)
+      tagX += tagW + 14
+    }
+  }
+
+  // Streak badge (if any)
+  if (data.streak > 0) {
+    const streakY = tagY + tagH + 32
+    ctx.fillStyle = 'rgba(27,59,43,0.06)'
+    const streakLabel = `🔥 ${data.streak}-day streak`
+    ctx.font = `600 26px "Inter", sans-serif`
+    const sW = ctx.measureText(streakLabel).width + 40
+    roundRect(ctx, 90, streakY, sW, 60, 18)
+    ctx.fill()
+    ctx.fillStyle = FOREST
+    ctx.fillText(streakLabel, 110, streakY + 30)
+  }
+
+  // ── Divider ────────────────────────────────────────────────────────────────
+  const divY = H - 130
+  ctx.strokeStyle = 'rgba(27,59,43,0.10)'
+  ctx.lineWidth = 1
+  ctx.beginPath()
+  ctx.moveTo(90, divY)
+  ctx.lineTo(W - 90, divY)
+  ctx.stroke()
+
+  // ── Footer ────────────────────────────────────────────────────────────────
+  ctx.textAlign = 'center'
+  ctx.fillStyle = 'rgba(27,59,43,0.30)'
+  ctx.font = `500 26px "Plus Jakarta Sans", "Inter", sans-serif`
+  ctx.fillText('koru.com.ng · Self-Discovery', W / 2, H - 74)
+
+  return new Promise(resolve => canvas.toBlob(blob => resolve(blob!), 'image/png', 1.0))
+}
+
 // ── Share or download helper ──────────────────────────────────────────────────
 export async function shareOrDownloadImage(
   blob: Blob,

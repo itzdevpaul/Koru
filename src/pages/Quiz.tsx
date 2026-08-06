@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
 import { useSubscription } from '../context/SubscriptionContext'
-import { saveQuizResult } from '../firebase'
+import { saveQuizResult, saveMoodMatch } from '../firebase'
 import { getQuizById, scoreQuiz, type QuizResultType } from '../data/quizzes'
 import { canTakeQuiz, recordQuizCompletion, formatTimeRemaining, FREE_QUIZ_LIMIT } from '../utils/quizRateLimit'
 import { generateQuizShareImage, shareOrDownloadImage } from '../utils/shareImage'
@@ -129,6 +129,18 @@ export default function Quiz() {
             resultTypeId: finalResult.id,
             resultTitle: finalResult.title,
             resultEmoji: finalResult.emoji,
+          }).then(() => {
+            // Record mood match if this quiz was launched from the matcher
+            const pending = sessionStorage.getItem('koru-mood-pending')
+            if (pending) {
+              try {
+                const { feelingId, quizId } = JSON.parse(pending) as { feelingId: string; quizId: string }
+                if (quizId === q_.id) {
+                  sessionStorage.removeItem('koru-mood-pending')
+                  saveMoodMatch(user!.uid, feelingId, quizId).catch(() => {})
+                }
+              } catch { /* ignore malformed session data */ }
+            }
           }).finally(() => setSaving(false))
         }
       }
