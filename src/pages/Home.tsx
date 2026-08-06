@@ -3,10 +3,14 @@ import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
 import { useSubscription } from '../context/SubscriptionContext'
-import { logOut, getQuizResults, updateStreak, getUserProfile, updateUserProfile, sendReminderEmail, saveCheckIn, getTodayCheckIn, getTodayPrompt, MOOD_OPTIONS, getActiveAd, type SavedQuizResult, type CheckIn, type MoodKey, type Ad } from '../firebase'
+import { logOut, getQuizResults, updateStreak, getUserProfile, updateUserProfile, sendReminderEmail, saveCheckIn, getTodayCheckIn, getTodayPrompt, MOOD_OPTIONS, getActiveAd, saveIntention, markIntentionSurfaced, getRecentCheckIns, type SavedQuizResult, type CheckIn, type MoodKey, type Ad, type UserProfile } from '../firebase'
 import { generateCheckInShareImage, shareOrDownloadImage } from '../utils/shareImage'
 import { quizzes, insightCombinations } from '../data/quizzes'
 import AdModal from '../components/AdModal'
+import PatternMirrorCard from '../components/PatternMirrorCard'
+import MoodQuizMatcher from '../components/MoodQuizMatcher'
+import FutureSelfCard from '../components/FutureSelfCard'
+import { analyzePatterns } from '../utils/patternMirror'
 
 const F = "'Plus Jakarta Sans', sans-serif"
 const I = "'Inter', sans-serif"
@@ -49,6 +53,18 @@ export default function Home() {
   const [showFriendNudge, setShowFriendNudge] = useState(false)
   const [nudgeCopied, setNudgeCopied] = useState(false)
 
+  // ── Future self / intentions ──
+  const [profile, setProfile] = useState<UserProfile | null>(null)
+  const [showFutureSelf, setShowFutureSelf] = useState(false)
+  const [futureSelfDismissed, setFutureSelfDismissed] = useState(false)
+  const [showIntentionPrompt, setShowIntentionPrompt] = useState(false)
+  const [intentionPromptDismissed, setIntentionPromptDismissed] = useState(
+    () => !!sessionStorage.getItem('koru-intention-dismissed'),
+  )
+
+  // ── Pattern mirror ──
+  const [patternCheckIns, setPatternCheckIns] = useState<Array<CheckIn & { date: string }>>([])
+
   const firstName = user?.displayName?.split(' ')[0] ?? 'there'
 
   useEffect(() => {
@@ -64,6 +80,16 @@ export default function Home() {
     if (!isPro && !adDismissed) {
       getActiveAd().then(ad => { if (ad) setActiveAd(ad) }).catch(() => {})
     }
+    // Load profile for future self / intention logic
+    getUserProfile(user.uid).then(p => {
+      setProfile(p)
+      if (p?.currentIntention && p.intentionSetAt && !p.intentionSurfacedAt) {
+        const daysSince = (Date.now() - new Date(p.intentionSetAt).getTime()) / 86_400_000
+        if (daysSince >= 90) setShowFutureSelf(true)
+      }
+    }).catch(() => {})
+    // Load recent check-ins for pattern mirror
+    getRecentCheckIns(user.uid, 5).then(setPatternCheckIns).catch(() => {})
   }, [user])
 
   // ── Weekly reminder: fire once on mount if opted in and 7+ days since last send ──
@@ -117,6 +143,14 @@ export default function Home() {
     const dismissed = sessionStorage.getItem('koru-friend-nudge-dismissed')
     if (isNew && !dismissed && isMeaningfulCheckIn(checkInMood, checkInEnergy, checkInReflection.trim())) {
       setShowFriendNudge(true)
+    }
+
+    // Show intention prompt after first meaningful save if no active intention
+    if (isNew && isMeaningfulCheckIn(checkInMood, checkInEnergy, checkInReflection.trim())) {
+      const intentDism = sessionStorage.getItem('koru-intention-dismissed')
+      if (!intentDism && (!profile?.currentIntention || !!profile?.intentionSurfacedAt)) {
+        setShowIntentionPrompt(true)
+      }
     }
   }
 
@@ -191,6 +225,36 @@ export default function Home() {
     sessionStorage.setItem('koru-ad-seen', '1')
     setAdDismissed(true)
   }
+
+  async function handleSaveIntention(text: string) {
+    if (!user) return
+    await saveIntention(user.uid, text)
+    setProfile(prev => prev
+      ? { ...prev, currentIntention: text, intentionSetAt: new Date().toISOString().slice(0, 10), intentionSurfacedAt: undefined }
+      : prev,
+    )
+    setShowIntentionPrompt(false)
+    setShowFutureSelf(false)
+    sessionStorage.setItem('koru-intention-dismissed', '1')
+    setIntentionPromptDismissed(true)
+  }
+
+  async function handleMarkSurfaced() {
+    if (!user) return
+    await markIntentionSurfaced(user.uid).catch(() => {})
+    setProfile(prev => prev
+      ? { ...prev, intentionSurfacedAt: new Date().toISOString().slice(0, 10) }
+      : prev,
+    )
+  }
+
+  function formatIntentionAge(dateStr: string): string {
+    const days = (Date.now() - new Date(dateStr).getTime()) / 86_400_000
+    const months = Math.round(days / 30)
+    return months >= 2 ? `${months} months ago` : 'about 3 months ago'
+  }
+
+  const patternObservations = analyzePatterns(patternCheckIns)
 
   return (
     <div className="min-h-screen" style={{ background: c.bg, transition: 'background 0.25s' }}>
@@ -330,6 +394,20 @@ export default function Home() {
             Koru is your space to think clearly, know yourself better, and navigate what comes next.
           </p>
         </div>
+
+        {/* ── Future self check-in ── */}
+        {showFutureSelf && !futureSelfDismissed && profile?.currentIntention && (
+          <FutureSelfCard
+            mode="surface"
+            intention={profile.currentIntention}
+            intentionDate={profile.intentionSetAt ? formatIntentionAge(profile.intentionSetAt) : 'a while ago'}
+            results={results}
+            streak={streak}
+            onDismiss={() => setFutureSelfDismissed(true)}
+            onSaveNew={handleSaveIntention}
+            onMarkSurfaced={handleMarkSurfaced}
+          />
+        )}
 
         {/* ── Clarity Card banner (30-day milestone) ── */}
         {showClarityBanner && (
@@ -632,6 +710,24 @@ export default function Home() {
           </section>
         )}
 
+        {/* ── Intention prompt (after meaningful check-in) ── */}
+        {showIntentionPrompt && !intentionPromptDismissed && !showFriendNudge && (
+          <FutureSelfCard
+            mode="prompt"
+            onDismiss={() => {
+              setShowIntentionPrompt(false)
+              sessionStorage.setItem('koru-intention-dismissed', '1')
+              setIntentionPromptDismissed(true)
+            }}
+            onSaveNew={handleSaveIntention}
+          />
+        )}
+
+        {/* ── Pattern mirror ── */}
+        {patternObservations.length > 0 && (
+          <PatternMirrorCard observations={patternObservations} />
+        )}
+
         {/* ── Growth card (Pro only) ── */}
         {isPro && results.length > 0 && (
           <section className="mb-10">
@@ -727,6 +823,9 @@ export default function Home() {
             </div>
           </section>
         )}
+
+        {/* ── Mood-to-quiz matcher ── */}
+        <MoodQuizMatcher results={results} />
 
         {/* ── Quizzes ── */}
         <section className="mb-12">

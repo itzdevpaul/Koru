@@ -15,6 +15,7 @@ import {
   where,
   documentId,
   deleteDoc,
+  deleteField,
   limit,
 } from 'firebase/firestore'
 import {
@@ -134,6 +135,10 @@ export interface UserProfile {
   emailOptIn?: boolean
   lastReminderSent?: string    // ISO date string YYYY-MM-DD
   lastClarityCardSeen?: string // ISO month string YYYY-MM
+  // Future self intentions
+  currentIntention?: string    // text the user wrote to their future self
+  intentionSetAt?: string      // ISO date YYYY-MM-DD when intention was written
+  intentionSurfacedAt?: string // ISO date YYYY-MM-DD when it was shown back to them
 }
 
 export async function saveUserProfile(uid: string, data: UserProfile): Promise<void> {
@@ -352,6 +357,45 @@ export async function getTodayCheckIn(uid: string): Promise<CheckIn | null> {
   const snap = await getDoc(doc(db, 'users', uid, 'checkins', todayISO()))
   if (!snap.exists()) return null
   return snap.data() as CheckIn
+}
+
+// ── Future self intentions ───────────────────────────────────────────────────
+
+export async function saveIntention(uid: string, text: string): Promise<void> {
+  const today = todayISO()
+  await updateDoc(doc(db, 'users', uid, 'profile', 'main'), {
+    currentIntention: text,
+    intentionSetAt: today,
+    intentionSurfacedAt: deleteField(),
+    updatedAt: serverTimestamp(),
+  })
+}
+
+export async function markIntentionSurfaced(uid: string): Promise<void> {
+  const today = todayISO()
+  await updateDoc(doc(db, 'users', uid, 'profile', 'main'), {
+    intentionSurfacedAt: today,
+    updatedAt: serverTimestamp(),
+  })
+}
+
+// ── Recent check-ins (for pattern mirror) ────────────────────────────────────
+
+export async function getRecentCheckIns(
+  uid: string,
+  n = 5,
+): Promise<Array<CheckIn & { date: string }>> {
+  const snap = await withTimeout(
+    getDocs(
+      query(
+        collection(db, 'users', uid, 'checkins'),
+        orderBy(documentId(), 'desc'),
+        limit(n),
+      ),
+    ),
+    8_000,
+  )
+  return snap.docs.map(d => ({ date: d.id, ...(d.data() as CheckIn) }))
 }
 
 // ── Clarity Card (month-end transformation) ──────────────────────────────────

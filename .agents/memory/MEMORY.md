@@ -1,0 +1,2 @@
+- [Firebase intention pattern](firebase-intention-pattern.md) — future-self intentions stored in UserProfile (not a subcollection); use deleteField() when clearing intentionSurfacedAt.
+- [Pattern mirror analysis](pattern-mirror.md) — client-side only; requires ≥3 check-ins with reflections ≥15 chars; threshold = max(3, ⌊total×0.5⌋).

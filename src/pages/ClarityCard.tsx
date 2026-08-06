@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
 import { getClarityMetrics, markClarityCardSeen, type ClarityMetrics } from '../firebase'
+import { generateClarityDeltaImage, shareOrDownloadImage } from '../utils/shareImage'
 
 const F = "'Plus Jakarta Sans', sans-serif"
 const I = "'Inter', sans-serif"
@@ -17,6 +18,8 @@ export default function ClarityCardPage() {
   const [metrics, setMetrics] = useState<ClarityMetrics | null>(null)
   const [loading, setLoading] = useState(true)
   const [shared, setShared] = useState(false)
+  const [sharing, setSharing] = useState(false)
+  const [shareMsg, setShareMsg] = useState('')
 
   useEffect(() => {
     if (!user) return
@@ -33,26 +36,27 @@ export default function ClarityCardPage() {
   }, [user])
 
   async function handleShare() {
-    if (!metrics) return
-    const text = [
-      `My ${metrics.monthName} Growth Snapshot 🌿`,
-      '',
-      `Boundary Confidence: ${plus(metrics.moodDelta)}${metrics.moodDelta}%`,
-      `Decision Clarity:    ${plus(metrics.energyDelta)}${metrics.energyDelta}%`,
-      '',
-      `Shift: "${metrics.overallStart}" → "${metrics.overallEnd}"`,
-      '',
-      `${metrics.checkInCount} days of showing up for myself.`,
-      '',
-      'Powered by Koru — koru.com.ng',
-    ].join('\n')
-
-    if (navigator.share) {
-      try { await navigator.share({ text, title: 'My Koru Growth Snapshot' }) } catch { /* cancelled */ }
-    } else {
-      await navigator.clipboard.writeText(text).catch(() => {})
-      setShared(true)
-      setTimeout(() => setShared(false), 2500)
+    if (!metrics || sharing) return
+    setSharing(true)
+    setShareMsg('')
+    try {
+      const blob = await generateClarityDeltaImage({
+        monthName: metrics.monthName,
+        moodDelta: metrics.moodDelta,
+        energyDelta: metrics.energyDelta,
+        overallStart: metrics.overallStart,
+        overallEnd: metrics.overallEnd,
+        checkInCount: metrics.checkInCount,
+      })
+      const outcome = await shareOrDownloadImage(blob, 'koru-clarity-snapshot.png', 'My Koru Growth Snapshot')
+      if (outcome === 'downloaded') { setShared(true); setTimeout(() => setShared(false), 3000) }
+      else if (outcome === 'shared') { setShareMsg('Shared!'); setTimeout(() => setShareMsg(''), 2500) }
+      else { setShareMsg('Unable to save — try again.'); setTimeout(() => setShareMsg(''), 3000) }
+    } catch {
+      setShareMsg('Something went wrong.')
+      setTimeout(() => setShareMsg(''), 3000)
+    } finally {
+      setSharing(false)
     }
   }
 
@@ -249,11 +253,17 @@ export default function ClarityCardPage() {
         <div className="mt-6 flex flex-col gap-3">
           <button
             onClick={handleShare}
-            className="w-full py-3.5 rounded-2xl text-sm font-semibold text-white transition-all duration-200 hover:opacity-90 active:scale-[0.98]"
+            disabled={sharing}
+            className="w-full py-3.5 rounded-2xl text-sm font-semibold text-white transition-all duration-200 hover:opacity-90 active:scale-[0.98] disabled:opacity-60"
             style={{ fontFamily: F, background: '#1B3B2B' }}
           >
-            {shared ? '✓ Copied to clipboard!' : '🌿 Share my snapshot'}
+            {sharing ? 'Creating image…' : shared ? '✓ Saved!' : '🌿 Share my snapshot'}
           </button>
+          {shareMsg && (
+            <p className="text-center text-xs" style={{ fontFamily: "'Inter', sans-serif", color: c.muted }}>
+              {shareMsg}
+            </p>
+          )}
           <button
             onClick={() => navigate('/home')}
             className="w-full py-3 rounded-2xl text-sm transition-opacity hover:opacity-60"

@@ -224,6 +224,211 @@ export async function generateCheckInShareImage(data: {
   return new Promise(resolve => canvas.toBlob(blob => resolve(blob!), 'image/png', 1.0))
 }
 
+// ── Clarity Delta snapshot card (1080×1350 portrait) ─────────────────────────
+export async function generateClarityDeltaImage(data: {
+  monthName: string
+  moodDelta: number
+  energyDelta: number
+  overallStart: string
+  overallEnd: string
+  checkInCount: number
+}): Promise<Blob> {
+  await document.fonts.ready
+
+  const W = 1080
+  const H = 1350
+  const canvas = document.createElement('canvas')
+  canvas.width = W
+  canvas.height = H
+  const ctx = canvas.getContext('2d')!
+  ctx.imageSmoothingEnabled = true
+  ctx.imageSmoothingQuality = 'high'
+
+  const plus = (n: number) => (n >= 0 ? '+' : '')
+
+  // ── Background: dark forest header (top 45%) + cream body ──────────────────
+
+  // Header gradient
+  const headerH = H * 0.46
+  const hGrad = ctx.createLinearGradient(0, 0, W, headerH)
+  hGrad.addColorStop(0, '#1B3B2B')
+  hGrad.addColorStop(1, '#2a5240')
+  ctx.fillStyle = hGrad
+  ctx.fillRect(0, 0, W, headerH)
+
+  // Radial glow in header
+  const glow = ctx.createRadialGradient(W * 0.75, H * 0.12, 0, W * 0.75, H * 0.12, W * 0.7)
+  glow.addColorStop(0, 'rgba(162,191,166,0.18)')
+  glow.addColorStop(1, 'rgba(0,0,0,0)')
+  ctx.fillStyle = glow
+  ctx.fillRect(0, 0, W, headerH)
+
+  // Body background (cream)
+  ctx.fillStyle = CREAM
+  ctx.fillRect(0, headerH, W, H - headerH)
+
+  // Subtle bottom glow on body
+  const bodyGlow = ctx.createRadialGradient(W * 0.15, H * 0.85, 0, W * 0.15, H * 0.85, W * 0.55)
+  bodyGlow.addColorStop(0, 'rgba(162,191,166,0.14)')
+  bodyGlow.addColorStop(1, 'rgba(251,249,245,0)')
+  ctx.fillStyle = bodyGlow
+  ctx.fillRect(0, headerH, W, H - headerH)
+
+  // Outer border
+  ctx.strokeStyle = 'rgba(162,191,166,0.25)'
+  ctx.lineWidth = 3
+  roundRect(ctx, 40, 40, W - 80, H - 80, 56)
+  ctx.stroke()
+
+  // ── Header content ────────────────────────────────────────────────────────
+
+  ctx.textAlign = 'left'
+  ctx.textBaseline = 'middle'
+
+  // Label
+  ctx.fillStyle = SAGE
+  ctx.font = `600 28px "Plus Jakarta Sans", "Inter", sans-serif`
+  ctx.fillText('GROWTH SNAPSHOT · KORU', 90, 110)
+
+  // Title
+  ctx.fillStyle = '#fff'
+  ctx.font = `bold 72px "Plus Jakarta Sans", "Inter", sans-serif`
+  ctx.fillText(`Your ${data.monthName}`, 90, 240)
+  ctx.fillText('Snapshot 🌿', 90, 330)
+
+  // Subtext
+  ctx.fillStyle = 'rgba(255,255,255,0.50)'
+  ctx.font = `400 30px "Inter", sans-serif`
+  ctx.fillText(`Based on ${data.checkInCount} check-in${data.checkInCount !== 1 ? 's' : ''}`, 90, 408)
+
+  // ── Divider between header and body ──────────────────────────────────────
+  ctx.strokeStyle = 'rgba(162,191,166,0.18)'
+  ctx.lineWidth = 1.5
+  ctx.beginPath()
+  ctx.moveTo(90, headerH)
+  ctx.lineTo(W - 90, headerH)
+  ctx.stroke()
+
+  // ── Body: metrics ─────────────────────────────────────────────────────────
+
+  const bodyTop = headerH + 64
+  const colL = 90
+  const colR = W - 90
+
+  // Helper: draw one metric row
+  function drawMetric(label: string, note: string, delta: number, y: number) {
+    const positive = delta >= 0
+    const chipBg  = positive ? 'rgba(162,191,166,0.22)' : 'rgba(224,122,95,0.14)'
+    const chipCol = positive ? FOREST : '#c0513a'
+    const chipText = `${plus(delta)}${delta}%`
+
+    // Chip (right side)
+    ctx.font = `bold 48px "Plus Jakarta Sans", "Inter", sans-serif`
+    const chipW = ctx.measureText(chipText).width + 56
+    const chipH = 80
+    const chipX = colR - chipW
+    const chipY = y - chipH / 2
+
+    ctx.fillStyle = chipBg
+    roundRect(ctx, chipX, chipY, chipW, chipH, 24)
+    ctx.fill()
+
+    ctx.fillStyle = chipCol
+    ctx.textAlign = 'center'
+    ctx.fillText(chipText, chipX + chipW / 2, y)
+
+    // Label (left side)
+    ctx.textAlign = 'left'
+    ctx.fillStyle = FOREST
+    ctx.font = `bold 42px "Plus Jakarta Sans", "Inter", sans-serif`
+    ctx.fillText(label, colL, y - 22)
+
+    // Note
+    ctx.fillStyle = BODY
+    ctx.font = `400 28px "Inter", sans-serif`
+    const noteLines = wrapText(ctx, note, chipX - colL - 48)
+    noteLines.slice(0, 2).forEach((line, i) => {
+      ctx.fillText(line, colL, y + 18 + i * 38)
+    })
+  }
+
+  // Metric 1: Boundary Confidence (mood delta)
+  const moodNote = data.moodDelta >= 20
+    ? `A ${data.moodDelta}% lift in emotional grounding.`
+    : data.moodDelta >= 0
+    ? 'Steady and growing this month.'
+    : 'A tough month — but you kept showing up.'
+  drawMetric('Boundary Confidence', moodNote, data.moodDelta, bodyTop + 80)
+
+  // Divider
+  ctx.strokeStyle = 'rgba(27,59,43,0.10)'
+  ctx.lineWidth = 1.5
+  ctx.beginPath()
+  ctx.moveTo(colL, bodyTop + 190)
+  ctx.lineTo(colR, bodyTop + 190)
+  ctx.stroke()
+
+  // Metric 2: Decision Clarity (energy delta)
+  const energyNote = data.energyDelta >= 20
+    ? `Mental sharpness up ${data.energyDelta}% — clearer head.`
+    : data.energyDelta >= 0
+    ? 'Energy stable and building.'
+    : 'Energy dipped — rest is growth too.'
+  drawMetric('Decision Clarity', energyNote, data.energyDelta, bodyTop + 330)
+
+  // Divider
+  ctx.strokeStyle = 'rgba(27,59,43,0.10)'
+  ctx.lineWidth = 1.5
+  ctx.beginPath()
+  ctx.moveTo(colL, bodyTop + 440)
+  ctx.lineTo(colR, bodyTop + 440)
+  ctx.stroke()
+
+  // ── Overall shift ─────────────────────────────────────────────────────────
+  const shiftY = bodyTop + 490
+
+  ctx.textAlign = 'left'
+  ctx.fillStyle = SAGE
+  ctx.font = `600 24px "Plus Jakarta Sans", "Inter", sans-serif`
+  ctx.fillText('OVERALL SHIFT', colL, shiftY)
+
+  if (data.overallStart === data.overallEnd) {
+    ctx.fillStyle = FOREST
+    ctx.font = `bold 36px "Plus Jakarta Sans", "Inter", sans-serif`
+    ctx.fillText(`Holding steady at "${data.overallEnd}" ✦`, colL, shiftY + 60)
+  } else {
+    ctx.fillStyle = 'rgba(27,59,43,0.55)'
+    ctx.font = `400 34px "Inter", sans-serif`
+    ctx.fillText(`"${data.overallStart}"`, colL, shiftY + 60)
+
+    // Arrow
+    const arrowX = colL + ctx.measureText(`"${data.overallStart}"`).width + 28
+    ctx.strokeStyle = SAGE
+    ctx.lineWidth = 2.5
+    ctx.beginPath()
+    ctx.moveTo(arrowX, shiftY + 60)
+    ctx.lineTo(arrowX + 64, shiftY + 60)
+    ctx.stroke()
+    ctx.beginPath()
+    ctx.moveTo(arrowX + 46, shiftY + 50)
+    ctx.lineTo(arrowX + 64, shiftY + 60)
+    ctx.lineTo(arrowX + 46, shiftY + 70)
+    ctx.stroke()
+
+    ctx.fillStyle = FOREST
+    ctx.font = `bold 36px "Plus Jakarta Sans", "Inter", sans-serif`
+    ctx.fillText(`"${data.overallEnd}"`, arrowX + 84, shiftY + 60)
+  }
+
+  // ── Footer ────────────────────────────────────────────────────────────────
+  ctx.textAlign = 'center'
+  ctx.fillStyle = 'rgba(27,59,43,0.30)'
+  ctx.font = `500 26px "Plus Jakarta Sans", "Inter", sans-serif`
+  ctx.fillText('koru.com.ng · Self-Discovery', W / 2, H - 80)
+
+  return new Promise(resolve => canvas.toBlob(blob => resolve(blob!), 'image/png', 1.0))
+}
+
 // ── Share or download helper ──────────────────────────────────────────────────
 export async function shareOrDownloadImage(
   blob: Blob,
