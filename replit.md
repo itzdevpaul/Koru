@@ -39,6 +39,13 @@ npm install
 npm run dev
 ```
 
+## PWA
+
+- `public/manifest.webmanifest` provides the installable app metadata and Koru branding.
+- `public/sw.js` caches the app shell and serves `public/offline.html` when navigation is offline.
+- The service worker registers automatically in production builds; local development remains network-first for a predictable Vite experience.
+- Firebase web configuration is sufficient for installability. Push notifications would require a separate Firebase Cloud Messaging VAPID key if added later.
+
 ## Firebase
 
 - **Auth:** Email/password + Google OAuth. Firebase project: `koru-official-a619b`.

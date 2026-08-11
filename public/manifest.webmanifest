@@ -1,0 +1,21 @@
+{
+  "name": "Koru – Clarity for Life's Turning Points",
+  "short_name": "Koru",
+  "description": "A calm, science-backed space for self-discovery, personal growth, and clearer life decisions.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#FBF9F5",
+  "theme_color": "#1B3B2B",
+  "lang": "en-NG",
+  "categories": ["lifestyle", "education", "health"],
+  "icons": [
+    {
+      "src": "/apple-touch-icon.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
