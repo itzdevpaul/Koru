@@ -2,7 +2,8 @@ import express from 'express'
 import { Resend } from 'resend'
 import { initializeApp, cert, getApps, type App } from 'firebase-admin/app'
 import { getAuth } from 'firebase-admin/auth'
-import { getFirestore } from 'firebase-admin/firestore'
+import { FieldValue, getFirestore } from 'firebase-admin/firestore'
+import { getMessaging } from 'firebase-admin/messaging'
 
 // ── Firebase Admin init (lazy, only if credentials are present) ───────────────
 let _adminApp: App | null = null
@@ -322,6 +323,16 @@ app.get('/api/health', (_req, res) => res.json({ status: 'ok' }))
 
 app.listen(PORT, () => console.log(`[Koru API] Running on port ${PORT}`))
 
+// ── Daily push scheduler ─────────────────────────────────────────────────────
+// Enabled only in the production environment so local development never sends
+// real notifications. The scheduler is intentionally in-process to avoid a
+// paid Cloud Functions dependency; the production web process must stay running.
+const DAILY_PUSH_HOUR = 9
+if (process.env.PUSH_SCHEDULE_ENABLED === 'true') {
+  setInterval(() => { void maybeSendDailyPush() }, 60_000)
+  void maybeSendDailyPush()
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function getReflectionPrompt(resultTitle?: string): string {
@@ -341,6 +352,119 @@ function getReflectionPrompt(resultTitle?: string): string {
     return `As ${resultTitle}, here's your prompt for the week: ${prompts[Math.floor(Math.random() * prompts.length)]}`
   }
   return prompts[Math.floor(Math.random() * prompts.length)]
+}
+
+function getLagosDateParts(date = new Date()): { dateKey: string; hour: number } {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Africa/Lagos',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(date)
+  const values = Object.fromEntries(parts.map(({ type, value }) => [type, value]))
+  return {
+    dateKey: `${values.year}-${values.month}-${values.day}`,
+    hour: Number(values.hour),
+  }
+}
+
+function getDailyPushPrompt(dateKey: string): string {
+  const prompts = [
+    'What is one small choice you can make today that feels true to you?',
+    'What deserves more of your attention today — and what can wait?',
+    'What are you learning about yourself in this season of life?',
+    'What would make today feel quietly meaningful?',
+    'Where could you give yourself more patience today?',
+    'What is one thing you can let go of before the day begins?',
+    'What part of your life is asking to be nurtured right now?',
+  ]
+  const seed = [...dateKey].reduce((total, character) => total + character.charCodeAt(0), 0)
+  return prompts[seed % prompts.length]
+}
+
+async function maybeSendDailyPush(): Promise<void> {
+  const { dateKey, hour } = getLagosDateParts()
+  if (hour < DAILY_PUSH_HOUR) return
+
+  try {
+    const firestore = getFirestore(getAdminApp())
+    const runRef = firestore.doc('system/dailyPush')
+    const claimed = await firestore.runTransaction(async (transaction) => {
+      const snapshot = await transaction.get(runRef)
+      if (snapshot.data()?.lastAttemptedDate === dateKey) return false
+      transaction.set(runRef, {
+        lastAttemptedDate: dateKey,
+        lastAttemptedAt: new Date(),
+      }, { merge: true })
+      return true
+    })
+    if (!claimed) return
+
+    const profileSnapshot = await firestore
+      .collectionGroup('profile')
+      .where('pushNotificationsEnabled', '==', true)
+      .get()
+
+    const recipients = profileSnapshot.docs.flatMap((profileDoc) => {
+      const data = profileDoc.data()
+      const token = typeof data.pushToken === 'string' ? data.pushToken : ''
+      return token ? [{ profileDoc, token }] : []
+    })
+
+    if (!recipients.length) {
+      console.log(`[Koru] Daily push ${dateKey}: no opted-in devices`)
+      return
+    }
+
+    const appUrl = process.env.APP_URL ?? 'https://koru.com.ng'
+    const prompt = getDailyPushPrompt(dateKey)
+    const messaging = getMessaging(getAdminApp())
+    let sent = 0
+    let removed = 0
+
+    for (let start = 0; start < recipients.length; start += 500) {
+      const batch = recipients.slice(start, start + 500)
+      const result = await messaging.sendEachForMulticast({
+        tokens: batch.map(({ token }) => token),
+        notification: {
+          title: 'A moment for yourself 🌿',
+          body: prompt,
+        },
+        data: {
+          url: '/home',
+          date: dateKey,
+        },
+        webpush: {
+          fcmOptions: { link: `${appUrl}/home` },
+          notification: {
+            icon: `${appUrl}/apple-touch-icon.png`,
+            badge: `${appUrl}/favicon.svg`,
+            tag: 'koru-daily-reflection',
+          },
+        },
+      })
+
+      sent += result.successCount
+      for (let index = 0; index < result.responses.length; index += 1) {
+        const response = result.responses[index]
+        const code = response.error?.code
+        if (response.success || !code?.includes('registration-token-not-registered') && !code?.includes('invalid-registration-token')) continue
+
+        await batch[index].profileDoc.ref.update({
+          pushToken: FieldValue.delete(),
+          pushNotificationsEnabled: false,
+          updatedAt: new Date(),
+        })
+        removed += 1
+      }
+    }
+
+    console.log(`[Koru] Daily push ${dateKey}: sent=${sent}, removed=${removed}`)
+  } catch (err) {
+    console.error('[Koru] Daily push failed:', err instanceof Error ? err.message : err)
+  }
 }
 
 function buildReminderEmail(name: string, prompt: string): string {

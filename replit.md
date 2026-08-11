@@ -45,6 +45,7 @@ npm run dev
 - `public/sw.js` caches the app shell and serves `public/offline.html` when navigation is offline.
 - The service worker registers automatically in production builds; local development remains network-first for a predictable Vite experience.
 - Firebase web configuration is sufficient for installability. Push notifications would require a separate Firebase Cloud Messaging VAPID key if added later.
+- Production daily notifications run from the API process at 09:00 Africa/Lagos when `PUSH_SCHEDULE_ENABLED=true`; only users who opted in from Profile are targeted.
 
 ## Firebase
 

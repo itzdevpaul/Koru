@@ -49,3 +49,6 @@ APP_URL = "https://koru.com.ng"
 ADMIN_PASSWORD = "koru-admin-2026"
 VITE_SQUAD_PUBLIC_KEY = "pk_bea7032dfdae1dbb4654d6d06cc67b9910761ade"
 VITE_FIREBASE_VAPID_KEY = "BAgQcShucdSpS_YgcZaUe4GcvNgjnjPeqhBVBLFl_Q4wCEmCJpcoW0Q0CMTCNSfBMeHw4rV1_RRIGCqEKGRKH9g"
+
+[userenv.production]
+PUSH_SCHEDULE_ENABLED = "true"
