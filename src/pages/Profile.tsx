@@ -7,6 +7,8 @@ import {
   updateUserProfile,
   getQuizResults,
   sendReminderEmail,
+  enablePushNotifications,
+  disablePushNotifications,
   type UserProfile,
   type SavedQuizResult,
 } from '../firebase'
@@ -35,11 +37,14 @@ export default function Profile() {
   const [focusAreas, setFocusAreas] = useState<string[]>([])
   const [ageRange, setAgeRange] = useState('')
   const [emailOptIn, setEmailOptIn] = useState(false)
+  const [pushOptIn, setPushOptIn] = useState(false)
 
   const [saving, setSaving] = useState(false)
   const [savedMsg, setSavedMsg] = useState('')
   const [sendingEmail, setSendingEmail] = useState(false)
   const [emailMsg, setEmailMsg] = useState('')
+  const [pushBusy, setPushBusy] = useState(false)
+  const [pushMsg, setPushMsg] = useState('')
 
   useEffect(() => {
     if (!user) return
@@ -51,6 +56,7 @@ export default function Profile() {
           setFocusAreas(p.focusAreas || [])
           setAgeRange(p.ageRange || '')
           setEmailOptIn(p.emailOptIn ?? false)
+          setPushOptIn(p.pushNotificationsEnabled ?? false)
         }
         setResults(r)
         setLoading(false)
@@ -84,6 +90,33 @@ export default function Profile() {
     setSendingEmail(false)
     setEmailMsg(ok ? '✓ Prompt sent to your inbox!' : 'Could not send — check your email settings.')
     setTimeout(() => setEmailMsg(''), 4000)
+  }
+
+  async function handlePushToggle() {
+    if (!user) return
+    setPushBusy(true)
+    setPushMsg('')
+
+    if (pushOptIn) {
+      try {
+        await disablePushNotifications(user.uid)
+        setPushOptIn(false)
+        setPushMsg('Notifications turned off.')
+      } catch {
+        setPushMsg('Could not turn off notifications. Please try again.')
+      }
+    } else {
+      const result = await enablePushNotifications(user.uid)
+      if ('error' in result) {
+        setPushMsg(result.error)
+      } else {
+        setPushOptIn(true)
+        setPushMsg('✓ Notifications enabled on this device.')
+      }
+    }
+
+    setPushBusy(false)
+    setTimeout(() => setPushMsg(''), 5000)
   }
 
   const initials = (displayName || user?.email || '?')[0].toUpperCase()
@@ -280,6 +313,43 @@ export default function Profile() {
                 <p className="text-xs mt-2" style={{ fontFamily: I, color: c.body }}>{emailMsg}</p>
               )}
             </div>
+          )}
+        </section>
+
+        {/* Push Notifications */}
+        <section
+          className="mb-6 p-5 rounded-3xl"
+          style={{ background: c.card, border: `1px solid ${c.cardBorder}` }}
+        >
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex-1">
+              <p className="font-semibold text-sm mb-1" style={{ fontFamily: F, color: c.forest }}>
+                Browser notifications
+              </p>
+              <p className="text-xs leading-relaxed" style={{ fontFamily: I, color: c.body }}>
+                Get gentle reminders from Koru on this device. You can turn them off any time.
+              </p>
+            </div>
+            <button
+              onClick={handlePushToggle}
+              disabled={pushBusy}
+              className="relative flex-shrink-0 w-11 h-6 rounded-full transition-all duration-200 disabled:opacity-50"
+              style={{ background: pushOptIn ? '#1B3B2B' : c.surface }}
+              aria-label="Toggle browser notifications"
+              aria-pressed={pushOptIn}
+            >
+              <span
+                className="absolute top-0.5 left-0.5 w-5 h-5 rounded-full transition-all duration-200"
+                style={{
+                  background: '#fff',
+                  transform: pushOptIn ? 'translateX(20px)' : 'translateX(0)',
+                  boxShadow: '0 1px 4px rgba(0,0,0,0.15)',
+                }}
+              />
+            </button>
+          </div>
+          {pushMsg && (
+            <p className="text-xs mt-3" style={{ fontFamily: I, color: c.body }}>{pushMsg}</p>
           )}
         </section>
 

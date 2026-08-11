@@ -30,6 +30,12 @@ import {
   signInWithPopup,
   sendPasswordResetEmail,
 } from 'firebase/auth'
+import {
+  deleteToken,
+  getMessaging,
+  getToken,
+  isSupported as isMessagingSupported,
+} from 'firebase/messaging'
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY as string,
@@ -134,6 +140,8 @@ export interface UserProfile {
   lastActive?: string          // ISO date string YYYY-MM-DD
   emailOptIn?: boolean
   lastReminderSent?: string    // ISO date string YYYY-MM-DD
+  pushNotificationsEnabled?: boolean
+  pushToken?: string
   lastClarityCardSeen?: string // ISO month string YYYY-MM
   // Future self intentions
   currentIntention?: string    // text the user wrote to their future self
@@ -159,6 +167,58 @@ export async function getUserProfile(uid: string): Promise<UserProfile | null> {
   const snap = await getDoc(doc(db, 'users', uid, 'profile', 'main'))
   if (!snap.exists()) return null
   return snap.data() as UserProfile
+}
+
+// ── Browser push notifications ──────────────────────────────────────────────
+
+export async function isPushSupported(): Promise<boolean> {
+  if (typeof window === 'undefined' || !('Notification' in window) || !('serviceWorker' in navigator)) {
+    return false
+  }
+  return isMessagingSupported().catch(() => false)
+}
+
+export async function enablePushNotifications(
+  uid: string,
+): Promise<{ ok: true } | { error: string }> {
+  try {
+    const vapidKey = import.meta.env.VITE_FIREBASE_VAPID_KEY as string
+    if (!vapidKey) return { error: 'Push notifications are not configured yet.' }
+    if (!(await isPushSupported())) return { error: 'This browser does not support push notifications.' }
+
+    const permission = await Notification.requestPermission()
+    if (permission !== 'granted') return { error: 'Notification permission was not granted.' }
+
+    const registration = await navigator.serviceWorker.register('/sw.js')
+    const token = await getToken(getMessaging(app), {
+      vapidKey,
+      serviceWorkerRegistration: registration,
+    })
+    if (!token) return { error: 'Could not register this device for notifications.' }
+
+    await updateUserProfile(uid, {
+      pushNotificationsEnabled: true,
+      pushToken: token,
+    })
+    return { ok: true }
+  } catch (err) {
+    console.error('[Koru] Push notification setup failed:', err)
+    return { error: 'Could not enable notifications. Please try again.' }
+  }
+}
+
+export async function disablePushNotifications(uid: string): Promise<void> {
+  try {
+    if (await isPushSupported()) await deleteToken(getMessaging(app))
+  } catch (err) {
+    console.warn('[Koru] Could not remove the browser push token:', err)
+  }
+
+  await updateDoc(doc(db, 'users', uid, 'profile', 'main'), {
+    pushNotificationsEnabled: false,
+    pushToken: deleteField(),
+    updatedAt: serverTimestamp(),
+  })
 }
 
 // ── Streak tracking ─────────────────────────────────────────────────────────
