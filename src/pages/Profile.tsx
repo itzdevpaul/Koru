@@ -6,12 +6,14 @@ import {
   getUserProfile,
   updateUserProfile,
   getQuizResults,
+  ensureInviteCode,
   sendReminderEmail,
   enablePushNotifications,
   disablePushNotifications,
   type UserProfile,
   type SavedQuizResult,
 } from '../firebase'
+import KoruLoader from '../components/KoruLoader'
 
 const FOCUS_OPTIONS = [
   { id: 'career', emoji: '🧭', label: 'Career & Hobbies' },
@@ -45,6 +47,11 @@ export default function Profile() {
   const [emailMsg, setEmailMsg] = useState('')
   const [pushBusy, setPushBusy] = useState(false)
   const [pushMsg, setPushMsg] = useState('')
+  const [inviteCode, setInviteCode] = useState('')
+  const [referralCount, setReferralCount] = useState(0)
+  const [referralRewardGranted, setReferralRewardGranted] = useState(false)
+  const [inviteLoading, setInviteLoading] = useState(true)
+  const [inviteMsg, setInviteMsg] = useState('')
 
   useEffect(() => {
     if (!user) return
@@ -62,6 +69,14 @@ export default function Profile() {
         setLoading(false)
       },
     )
+    ensureInviteCode()
+      .then(status => {
+        setInviteCode(status.inviteCode)
+        setReferralCount(status.referralCount)
+        setReferralRewardGranted(status.referralRewardGranted)
+      })
+      .catch(() => setInviteMsg('Invite code is temporarily unavailable.'))
+      .finally(() => setInviteLoading(false))
   }, [user])
 
   function toggleFocus(id: string) {
@@ -119,12 +134,42 @@ export default function Profile() {
     setTimeout(() => setPushMsg(''), 5000)
   }
 
+  async function handleInviteShare() {
+    if (!inviteCode) return
+    const link = `https://koru.com.ng/signup?ref=${inviteCode}`
+    const text = `Join me on Koru — a private space to understand yourself better. ${link}`
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: 'Join me on Koru', text })
+        return
+      } catch { /* user cancelled sharing */ }
+    }
+    try {
+      await navigator.clipboard.writeText(link)
+      setInviteMsg('Invite link copied!')
+    } catch {
+      setInviteMsg('Copy failed — please try again.')
+    }
+    setTimeout(() => setInviteMsg(''), 3000)
+  }
+
+  async function handleInviteCopy() {
+    if (!inviteCode) return
+    try {
+      await navigator.clipboard.writeText(inviteCode)
+      setInviteMsg('Invite code copied!')
+    } catch {
+      setInviteMsg('Copy failed — please try again.')
+    }
+    setTimeout(() => setInviteMsg(''), 3000)
+  }
+
   const initials = (displayName || user?.email || '?')[0].toUpperCase()
 
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: c.bg }}>
-        <div className="w-5 h-5 rounded-full border-2 animate-spin" style={{ borderColor: c.cardBorder, borderTopColor: c.forest }} />
+        <KoruLoader compact />
       </div>
     )
   }
@@ -350,6 +395,64 @@ export default function Profile() {
           </div>
           {pushMsg && (
             <p className="text-xs mt-3" style={{ fontFamily: I, color: c.body }}>{pushMsg}</p>
+          )}
+        </section>
+
+        {/* Appearance */}
+        <section
+          className="mb-6 p-5 rounded-3xl"
+          style={{ background: c.card, border: `1px solid ${c.cardBorder}` }}
+        >
+          <div className="flex items-start justify-between gap-4 mb-4">
+            <div>
+              <p className="font-semibold text-sm mb-1" style={{ fontFamily: F, color: c.forest }}>
+                Invite friends, earn 1 week Pro
+              </p>
+              <p className="text-xs leading-relaxed" style={{ fontFamily: I, color: c.body }}>
+                Invite 10 friends who create accounts and unlock 7 days of Koru Pro.
+              </p>
+            </div>
+            <span className="text-xl" aria-hidden="true">🎁</span>
+          </div>
+          {inviteLoading ? (
+            <KoruLoader compact />
+          ) : (
+            <>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-semibold" style={{ fontFamily: I, color: c.forest }}>
+                  {referralRewardGranted ? 'Reward unlocked' : `${Math.min(referralCount, 10)} of 10 invites`}
+                </span>
+                <span className="text-xs" style={{ fontFamily: I, color: c.muted }}>
+                  {referralRewardGranted ? '7 days added to Pro' : `${Math.max(0, 10 - referralCount)} to go`}
+                </span>
+              </div>
+              <div className="flex gap-1.5 mb-4" aria-label={`${Math.min(referralCount, 10)} of 10 invites completed`}>
+                {Array.from({ length: 10 }, (_, index) => (
+                  <div
+                    key={index}
+                    className="h-2 flex-1 rounded-full transition-colors"
+                    style={{ background: index < referralCount || referralRewardGranted ? '#1B3B2B' : c.surface }}
+                  />
+                ))}
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleInviteCopy}
+                  className="flex-1 py-2.5 rounded-xl text-xs font-bold tracking-widest transition-opacity hover:opacity-80"
+                  style={{ fontFamily: I, color: c.forest, background: c.surface, border: `1px solid ${c.cardBorder}` }}
+                >
+                  {inviteCode}
+                </button>
+                <button
+                  onClick={handleInviteShare}
+                  className="py-2.5 px-4 rounded-xl text-xs font-semibold text-white transition-opacity hover:opacity-90"
+                  style={{ fontFamily: F, background: '#1B3B2B' }}
+                >
+                  Share invite
+                </button>
+              </div>
+              {inviteMsg && <p className="text-xs mt-2" style={{ fontFamily: I, color: c.body }}>{inviteMsg}</p>}
+            </>
           )}
         </section>
 

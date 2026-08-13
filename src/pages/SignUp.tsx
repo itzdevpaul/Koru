@@ -1,12 +1,13 @@
 import { useState, FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { signUp, signInWithGoogle, sendWelcomeEmail } from '../firebase'
+import { signUp, signInWithGoogle, sendWelcomeEmail, claimInviteCode } from '../firebase'
 
 export default function SignUp() {
   const navigate = useNavigate()
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [inviteCode, setInviteCode] = useState(() => new URLSearchParams(window.location.search).get('ref')?.toUpperCase() ?? '')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
@@ -25,6 +26,10 @@ export default function SignUp() {
     if ('error' in result) {
       setError(result.error)
     } else {
+      if (inviteCode.trim()) {
+        const claim = await claimInviteCode(inviteCode)
+        if ('error' in claim) setError(claim.error)
+      }
       sendWelcomeEmail(result.user.email ?? email, name.trim())
       navigate('/onboarding')
     }
@@ -39,6 +44,10 @@ export default function SignUp() {
       if (result.error !== 'Sign-in cancelled.') setError(result.error)
     } else {
       const displayName = result.user.displayName ?? result.user.email ?? 'there'
+      if (inviteCode.trim()) {
+        const claim = await claimInviteCode(inviteCode)
+        if ('error' in claim) setError(claim.error)
+      }
       sendWelcomeEmail(result.user.email ?? '', displayName)
       navigate('/onboarding')
     }
@@ -252,6 +261,36 @@ export default function SignUp() {
                 </span>
               </div>
             )}
+          </div>
+
+          {/* Invite code */}
+          <div className="flex flex-col gap-1.5">
+            <label
+              htmlFor="invite-code"
+              className="text-xs font-semibold"
+              style={{ fontFamily: "'Inter', sans-serif", color: '#1B3B2B' }}
+            >
+              Invite code <span style={{ color: '#A2BFA6', fontWeight: 400 }}>(optional)</span>
+            </label>
+            <input
+              id="invite-code"
+              type="text"
+              value={inviteCode}
+              onChange={e => setInviteCode(e.target.value.replace(/[^a-z0-9]/gi, '').slice(0, 12).toUpperCase())}
+              placeholder="e.g. KORU7X2P"
+              maxLength={12}
+              autoComplete="off"
+              className="w-full py-3 px-4 rounded-2xl text-sm outline-none uppercase tracking-widest"
+              style={{
+                fontFamily: "'Inter', sans-serif",
+                background: 'rgba(162,191,166,0.1)',
+                border: '1.5px solid rgba(162,191,166,0.3)',
+                color: '#1B3B2B',
+              }}
+            />
+            <p className="text-[11px]" style={{ fontFamily: "'Inter', sans-serif", color: '#7a9a86' }}>
+              Enter a friend’s code so they get credit for your signup.
+            </p>
           </div>
 
           {/* Error */}

@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react'
-import { auth, onAuthStateChanged, type User } from '../firebase'
+import { auth, onAuthStateChanged, ensureInviteCode, type User } from '../firebase'
 
 interface AuthContextValue {
   user: User | null
@@ -16,6 +16,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const unsubscribe = onAuthStateChanged(auth, (u) => {
       setUser(u)
       setLoading(false)
+      if (u) void ensureInviteCode().catch(() => {})
     })
     return unsubscribe
   }, [])

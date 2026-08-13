@@ -52,7 +52,20 @@ service cloud.firestore {
     // Owner may read and write. Admin may read any profile.
     match /users/{uid}/profile/main {
       allow read: if isOwner(uid) || isAdmin();
-      allow write: if isOwner(uid);
+      allow create: if isOwner(uid)
+        && request.resource.data.keys().hasOnly([
+          'displayName', 'focusAreas', 'ageRange', 'onboardingComplete',
+          'streak', 'lastActive', 'emailOptIn', 'lastReminderSent',
+          'pushNotificationsEnabled', 'pushToken', 'lastClarityCardSeen',
+          'currentIntention', 'intentionSetAt', 'intentionSurfacedAt', 'updatedAt'
+        ]);
+      allow update: if isOwner(uid)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'displayName', 'focusAreas', 'ageRange', 'onboardingComplete',
+          'streak', 'lastActive', 'emailOptIn', 'lastReminderSent',
+          'pushNotificationsEnabled', 'pushToken', 'lastClarityCardSeen',
+          'currentIntention', 'intentionSetAt', 'intentionSurfacedAt', 'updatedAt'
+        ]);
     }
 
     // ── Quiz results ──────────────────────────────────────────────────────────
@@ -76,7 +89,7 @@ service cloud.firestore {
     // subscription activation after payment verification.
     match /users/{uid}/subscription/main {
       allow read: if isOwner(uid) || isAdmin();
-      allow write: if isOwner(uid);
+      allow write: if false;
     }
 
     // ── Check-ins ─────────────────────────────────────────────────────────────

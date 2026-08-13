@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { saveUserProfile, getUserProfile } from '../firebase'
+import KoruLoader from '../components/KoruLoader'
 
 const FOCUS_OPTIONS = [
   { id: 'career', emoji: '🧭', label: 'Career & Hobbies', body: 'Find work and pursuits that actually fit you.' },
@@ -58,7 +59,7 @@ export default function Onboarding() {
   if (checking) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: '#FBF9F5' }}>
-        <div className="w-5 h-5 rounded-full border-2 animate-spin" style={{ borderColor: '#A2BFA6', borderTopColor: '#1B3B2B' }} />
+        <KoruLoader label="Checking your progress…" />
       </div>
     )
   }

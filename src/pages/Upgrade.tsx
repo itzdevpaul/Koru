@@ -23,7 +23,10 @@ export default function Upgrade() {
     try {
       const res = await fetch('/api/subscribe/initiate', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${await user.getIdToken()}`,
+        },
         body: JSON.stringify({ uid: user.uid, email: user.email, origin: window.location.origin }),
       })
       const data = await res.json()

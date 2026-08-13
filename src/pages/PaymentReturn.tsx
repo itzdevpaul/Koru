@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { activateSubscription } from '../firebase'
+import KoruLoader from '../components/KoruLoader'
 
 const F = "'Plus Jakarta Sans', sans-serif"
 const I = "'Inter', sans-serif"
@@ -22,7 +23,7 @@ export default function PaymentReturn() {
         searchParams.get('squadRef') ??
         sessionStorage.getItem('koru-payment-ref')
 
-      const uid = user?.uid ?? sessionStorage.getItem('koru-payment-uid')
+      const uid = user?.uid
 
       if (!ref || !uid) {
         setStatus('error')
@@ -33,8 +34,11 @@ export default function PaymentReturn() {
       try {
         const res = await fetch('/api/subscribe/verify', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ref, uid }),
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${await user!.getIdToken()}`,
+          },
+          body: JSON.stringify({ ref }),
         })
         const data = await res.json()
 
@@ -61,8 +65,7 @@ export default function PaymentReturn() {
   if (status === 'verifying') {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-4" style={{ background: '#FBF9F5' }}>
-        <div className="w-12 h-12 rounded-full border-2 animate-spin" style={{ borderColor: 'rgba(162,191,166,0.3)', borderTopColor: '#1B3B2B' }} />
-        <p className="text-sm font-medium" style={{ fontFamily: I, color: '#7a9a86' }}>Verifying your payment…</p>
+        <KoruLoader label="Verifying your payment…" />
       </div>
     )
   }

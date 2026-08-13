@@ -1,8 +1,9 @@
 import express from 'express'
+import crypto from 'node:crypto'
 import { Resend } from 'resend'
 import { initializeApp, cert, getApps, type App } from 'firebase-admin/app'
 import { getAuth } from 'firebase-admin/auth'
-import { FieldValue, getFirestore } from 'firebase-admin/firestore'
+import { FieldValue, Timestamp, getFirestore } from 'firebase-admin/firestore'
 import { getMessaging } from 'firebase-admin/messaging'
 
 // ── Firebase Admin init (lazy, only if credentials are present) ───────────────
@@ -17,6 +18,28 @@ function getAdminApp(): App {
   )
   _adminApp = initializeApp({ credential: cert(credential) })
   return _adminApp
+}
+
+async function getAuthenticatedUser(req: express.Request) {
+  const header = req.headers.authorization
+  if (!header?.startsWith('Bearer ')) throw new Error('Authentication required')
+  return getAuth(getAdminApp()).verifyIdToken(header.slice(7))
+}
+
+function inviteCode(): string {
+  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+  const bytes = crypto.randomBytes(8)
+  return Array.from(bytes, byte => alphabet[byte % alphabet.length]).join('')
+}
+
+function escapeHtml(value: unknown): string {
+  return String(value ?? '').replace(/[&<>"']/g, char => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  }[char] ?? char))
+}
+
+function safeInviteCode(value: unknown): string {
+  return String(value ?? '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12)
 }
 
 const app = express()
@@ -42,8 +65,11 @@ function getResend() {
 // ── Send a weekly reflection reminder ────────────────────────────────────────
 app.post('/api/send-reminder', async (req, res) => {
   try {
+    const decoded = await getAuthenticatedUser(req)
     const { to, name, resultTitle } = req.body as { to: string; name: string; resultTitle?: string }
-    if (!to || !name) { res.status(400).json({ error: 'to and name are required' }); return }
+    if (!to || !name || to.toLowerCase() !== decoded.email?.toLowerCase()) {
+      res.status(403).json({ error: 'Email ownership could not be verified' }); return
+    }
 
     const resend = getResend()
     const prompt = getReflectionPrompt(resultTitle)
@@ -66,8 +92,11 @@ app.post('/api/send-reminder', async (req, res) => {
 // ── Send a welcome email ──────────────────────────────────────────────────────
 app.post('/api/send-welcome', async (req, res) => {
   try {
+    const decoded = await getAuthenticatedUser(req)
     const { to, name } = req.body as { to: string; name: string }
-    if (!to || !name) { res.status(400).json({ error: 'to and name are required' }); return }
+    if (!to || !name || to.toLowerCase() !== decoded.email?.toLowerCase()) {
+      res.status(403).json({ error: 'Email ownership could not be verified' }); return
+    }
 
     const resend = getResend()
     await resend.emails.send({
@@ -95,8 +124,9 @@ function squadBase() {
 
 app.post('/api/subscribe/initiate', async (req, res) => {
   try {
-    const { uid, email, origin } = req.body as { uid: string; email: string; origin?: string }
-    if (!uid || !email) { res.status(400).json({ error: 'uid and email required' }); return }
+    const decoded = await getAuthenticatedUser(req)
+    const { uid, origin } = req.body as { uid: string; origin?: string }
+    if (!uid || uid !== decoded.uid || !decoded.email) { res.status(403).json({ error: 'Account ownership could not be verified' }); return }
 
     const key = process.env.SQUAD_SECRET_KEY
     if (!key) { res.status(500).json({ error: 'SQUAD_SECRET_KEY not configured' }); return }
@@ -118,7 +148,7 @@ app.post('/api/subscribe/initiate', async (req, res) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        email,
+        email: decoded.email,
         amount: 250000, // ₦2,500 in kobo
         currency: 'NGN',
         initiate_type: 'inline', // required for Squad to return checkout_url
@@ -154,8 +184,9 @@ app.post('/api/subscribe/initiate', async (req, res) => {
 
 app.post('/api/subscribe/verify', async (req, res) => {
   try {
-    const { ref } = req.body as { ref: string; uid: string }
-    if (!ref) { res.status(400).json({ error: 'ref required' }); return }
+    const decoded = await getAuthenticatedUser(req)
+    const { ref } = req.body as { ref: string }
+    if (!ref || !ref.startsWith(`koru_sub_${decoded.uid}_`)) { res.status(403).json({ error: 'Payment ownership could not be verified' }); return }
 
     const key = process.env.SQUAD_SECRET_KEY
     if (!key) { res.status(500).json({ error: 'SQUAD_SECRET_KEY not configured' }); return }
@@ -174,6 +205,157 @@ app.post('/api/subscribe/verify', async (req, res) => {
     const msg = err instanceof Error ? err.message : 'Unknown error'
     console.error('[Koru] /api/subscribe/verify error:', msg)
     res.status(500).json({ error: msg })
+  }
+})
+
+app.post('/api/subscribe/activate', async (req, res) => {
+  try {
+    const decoded = await getAuthenticatedUser(req)
+    const { ref } = req.body as { ref: string }
+    if (!ref || !ref.startsWith(`koru_sub_${decoded.uid}_`)) {
+      res.status(403).json({ error: 'Payment ownership could not be verified' }); return
+    }
+
+    const key = process.env.SQUAD_SECRET_KEY
+    if (!key) { res.status(500).json({ error: 'SQUAD_SECRET_KEY not configured' }); return }
+    const response = await fetch(`${squadBase()}/transaction/verify/${encodeURIComponent(ref)}`, {
+      headers: { Authorization: `Bearer ${key}` },
+    })
+    const data = await response.json()
+    const verified =
+      data?.status === 200 &&
+      (data?.data?.transaction_status === 'Success' || data?.data?.transaction_status === 'success')
+    if (!verified) { res.status(402).json({ error: 'Payment could not be verified' }); return }
+
+    const expiresAt = new Date()
+    expiresAt.setDate(expiresAt.getDate() + 30)
+    await getFirestore(getAdminApp()).doc(`users/${decoded.uid}/subscription/main`).set({
+      active: true,
+      expiresAt,
+      squadRef: ref,
+      activatedAt: new Date(),
+      updatedAt: new Date(),
+    })
+    res.json({ ok: true })
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Unknown error'
+    console.error('[Koru] /api/subscribe/activate error:', msg)
+    res.status(msg === 'Authentication required' ? 401 : 500).json({ error: msg })
+  }
+})
+
+// ── Invite and earn ───────────────────────────────────────────────────────────
+app.post('/api/referrals/ensure-code', async (req, res) => {
+  try {
+    const decoded = await getAuthenticatedUser(req)
+    const firestore = getFirestore(getAdminApp())
+    const profileRef = firestore.doc(`users/${decoded.uid}/profile/main`)
+
+    for (let attempt = 0; attempt < 8; attempt += 1) {
+      const candidate = inviteCode()
+      const codeRef = firestore.doc(`inviteCodes/${candidate}`)
+      const result = await firestore.runTransaction(async transaction => {
+        const [profileSnap, codeSnap] = await Promise.all([
+          transaction.get(profileRef),
+          transaction.get(codeRef),
+        ])
+        const profile = profileSnap.data() ?? {}
+        if (typeof profile.inviteCode === 'string' && profile.inviteCode) {
+          return {
+            inviteCode: profile.inviteCode,
+            referralCount: Number(profile.referralCount ?? 0),
+            referralRewardGranted: Boolean(profile.referralRewardGranted),
+          }
+        }
+        if (codeSnap.exists) return null
+        transaction.set(codeRef, { uid: decoded.uid, createdAt: new Date() })
+        transaction.set(profileRef, {
+          inviteCode: candidate,
+          referralCount: 0,
+          referralRewardGranted: false,
+          updatedAt: new Date(),
+        }, { merge: true })
+        return { inviteCode: candidate, referralCount: 0, referralRewardGranted: false }
+      })
+      if (result) {
+        res.json({ ...result, rewardDays: 7 })
+        return
+      }
+    }
+    res.status(503).json({ error: 'Could not create an invite code. Please try again.' })
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Unknown error'
+    console.error('[Koru] /api/referrals/ensure-code error:', msg)
+    res.status(msg === 'Authentication required' ? 401 : 500).json({ error: msg })
+  }
+})
+
+app.post('/api/referrals/claim', async (req, res) => {
+  try {
+    const decoded = await getAuthenticatedUser(req)
+    const code = safeInviteCode((req.body as { inviteCode?: string }).inviteCode)
+    if (code.length < 6) { res.status(400).json({ error: 'Enter a valid invite code.' }); return }
+
+    const firestore = getFirestore(getAdminApp())
+    const codeRef = firestore.doc(`inviteCodes/${code}`)
+    const inviteeProfileRef = firestore.doc(`users/${decoded.uid}/profile/main`)
+    const result = await firestore.runTransaction(async transaction => {
+      const codeSnap = await transaction.get(codeRef)
+      if (!codeSnap.exists) throw new Error('That invite code is not valid.')
+      const ownerUid = String(codeSnap.data()?.uid ?? '')
+      if (!ownerUid || ownerUid === decoded.uid) throw new Error('You cannot use your own invite code.')
+
+      const inviterProfileRef = firestore.doc(`users/${ownerUid}/profile/main`)
+      const actualReferralRef = firestore.doc(`users/${ownerUid}/referrals/${decoded.uid}`)
+      const subscriptionRef = firestore.doc(`users/${ownerUid}/subscription/main`)
+      const [inviteeProfile, referral, inviterProfile, subscription] = await Promise.all([
+        transaction.get(inviteeProfileRef),
+        transaction.get(actualReferralRef),
+        transaction.get(inviterProfileRef),
+        transaction.get(subscriptionRef),
+      ])
+      if (inviteeProfile.data()?.referredBy) throw new Error('An invite code has already been applied to this account.')
+      if (referral.exists) return { rewardGranted: false }
+
+      const profile = inviterProfile.data() ?? {}
+      const count = Number(profile.referralCount ?? 0) + 1
+      const rewardGranted = Boolean(profile.referralRewardGranted) || count >= 10
+      transaction.set(actualReferralRef, {
+        invitedUid: decoded.uid,
+        inviteCode: code,
+        createdAt: new Date(),
+      })
+      transaction.set(inviteeProfileRef, {
+        referredBy: ownerUid,
+        referredAt: new Date().toISOString().slice(0, 10),
+        updatedAt: new Date(),
+      }, { merge: true })
+      transaction.set(inviterProfileRef, {
+        referralCount: count,
+        referralRewardGranted: rewardGranted,
+        updatedAt: new Date(),
+      }, { merge: true })
+
+      if (rewardGranted && !profile.referralRewardGranted) {
+        const currentExpiry = subscription.data()?.expiresAt?.toDate?.() as Date | undefined
+        const startsAt = currentExpiry && currentExpiry > new Date() ? currentExpiry : new Date()
+        const expiresAt = new Date(startsAt)
+        expiresAt.setDate(expiresAt.getDate() + 7)
+        transaction.set(subscriptionRef, {
+          active: true,
+          expiresAt: Timestamp.fromDate(expiresAt),
+          squadRef: 'referral-reward',
+          activatedAt: new Date(),
+          updatedAt: new Date(),
+        }, { merge: true })
+      }
+      return { rewardGranted: rewardGranted && !profile.referralRewardGranted }
+    })
+    res.json({ ok: true, rewardGranted: result.rewardGranted })
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Unknown error'
+    const status = msg.includes('valid') || msg.includes('own') || msg.includes('already') ? 400 : msg === 'Authentication required' ? 401 : 500
+    res.status(status).json({ error: msg })
   }
 })
 
@@ -468,6 +650,8 @@ async function maybeSendDailyPush(): Promise<void> {
 }
 
 function buildReminderEmail(name: string, prompt: string): string {
+  const safeName = escapeHtml(name)
+  const safePrompt = escapeHtml(prompt)
   return `
 <!DOCTYPE html>
 <html>
@@ -482,10 +666,10 @@ function buildReminderEmail(name: string, prompt: string): string {
         </td></tr>
         <tr><td style="background:#fff;border-radius:20px;padding:36px 32px;border:1px solid rgba(162,191,166,0.3)">
           <p style="margin:0 0 8px;color:#A2BFA6;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:1px">Weekly Reflection</p>
-          <h1 style="margin:0 0 16px;color:#1B3B2B;font-family:'Plus Jakarta Sans',sans-serif;font-size:22px;font-weight:700;line-height:1.3">Hey ${name} 👋</h1>
+           <h1 style="margin:0 0 16px;color:#1B3B2B;font-family:'Plus Jakarta Sans',sans-serif;font-size:22px;font-weight:700;line-height:1.3">Hey ${safeName} 👋</h1>
           <p style="margin:0 0 24px;color:#4a6a58;font-size:15px;line-height:1.6">Here's your reflection prompt for this week:</p>
           <blockquote style="margin:0 0 28px;padding:20px 24px;background:rgba(162,191,166,0.12);border-left:3px solid #A2BFA6;border-radius:0 12px 12px 0">
-            <p style="margin:0;color:#1B3B2B;font-size:16px;font-weight:600;line-height:1.5;font-style:italic">${prompt}</p>
+             <p style="margin:0;color:#1B3B2B;font-size:16px;font-weight:600;line-height:1.5;font-style:italic">${safePrompt}</p>
           </blockquote>
           <p style="margin:0 0 28px;color:#7a9a86;font-size:14px;line-height:1.6">Take a few minutes in your journal, on a walk, or just sitting quietly. There are no right answers — only honest ones.</p>
           <a href="${process.env.APP_URL ?? 'https://getkoru.app'}/home" style="display:inline-block;padding:14px 28px;background:#1B3B2B;color:#fff;text-decoration:none;border-radius:14px;font-family:'Plus Jakarta Sans',sans-serif;font-weight:600;font-size:14px">Open Koru →</a>
@@ -502,6 +686,7 @@ function buildReminderEmail(name: string, prompt: string): string {
 }
 
 function buildWelcomeEmail(name: string): string {
+  const safeName = escapeHtml(name)
   return `
 <!DOCTYPE html>
 <html>
@@ -515,7 +700,7 @@ function buildWelcomeEmail(name: string): string {
           <p style="margin:8px 0 0;font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;color:#1B3B2B;font-size:16px">Koru</p>
         </td></tr>
         <tr><td style="background:#fff;border-radius:20px;padding:36px 32px;border:1px solid rgba(162,191,166,0.3)">
-          <h1 style="margin:0 0 12px;color:#1B3B2B;font-family:'Plus Jakarta Sans',sans-serif;font-size:24px;font-weight:700">Welcome, ${name} 🌱</h1>
+           <h1 style="margin:0 0 12px;color:#1B3B2B;font-family:'Plus Jakarta Sans',sans-serif;font-size:24px;font-weight:700">Welcome, ${safeName} 🌱</h1>
           <p style="margin:0 0 20px;color:#4a6a58;font-size:15px;line-height:1.65">We're glad you're here. Koru is your private space to think clearly, understand yourself better, and navigate what comes next.</p>
           <p style="margin:0 0 28px;color:#4a6a58;font-size:15px;line-height:1.65">Start with a quiz — they take less than 5 minutes and the results might just surprise you.</p>
           <a href="${process.env.APP_URL ?? 'https://getkoru.app'}/home" style="display:inline-block;padding:14px 28px;background:#1B3B2B;color:#fff;text-decoration:none;border-radius:14px;font-family:'Plus Jakarta Sans',sans-serif;font-weight:600;font-size:14px">Go to my dashboard →</a>

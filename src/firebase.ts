@@ -36,6 +36,7 @@ import {
   getToken,
   isSupported as isMessagingSupported,
 } from 'firebase/messaging'
+import { sanitizeDisplayName, sanitizeEmail, sanitizeHttpUrl, sanitizeInviteCode, sanitizeText } from './utils/sanitize'
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY as string,
@@ -69,11 +70,17 @@ export async function signUp(
   displayName: string,
 ): Promise<{ user: User } | { error: string }> {
   try {
-    const { user } = await createUserWithEmailAndPassword(auth, email, password)
-    await updateProfile(user, { displayName })
+    const { user } = await createUserWithEmailAndPassword(auth, sanitizeEmail(email), password)
+    await updateProfile(user, { displayName: sanitizeDisplayName(displayName) })
     return { user }
   } catch (err: unknown) {
     return { error: formatAuthError(err) }
+  }
+}
+
+function assertOwnUid(uid: string): void {
+  if (!auth.currentUser || auth.currentUser.uid !== uid) {
+    throw new Error('You can only access your own Koru data.')
   }
 }
 
@@ -82,7 +89,7 @@ export async function signIn(
   password: string,
 ): Promise<{ user: User } | { error: string }> {
   try {
-    const { user } = await signInWithEmailAndPassword(auth, email, password)
+    const { user } = await signInWithEmailAndPassword(auth, sanitizeEmail(email), password)
     return { user }
   } catch (err: unknown) {
     return { error: formatAuthError(err) }
@@ -147,26 +154,49 @@ export interface UserProfile {
   currentIntention?: string    // text the user wrote to their future self
   intentionSetAt?: string      // ISO date YYYY-MM-DD when intention was written
   intentionSurfacedAt?: string // ISO date YYYY-MM-DD when it was shown back to them
+  inviteCode?: string
+  referralCount?: number
+  referralRewardGranted?: boolean
+  referredBy?: string
+  referredAt?: string
 }
 
 export async function saveUserProfile(uid: string, data: UserProfile): Promise<void> {
+  assertOwnUid(uid)
   await setDoc(doc(db, 'users', uid, 'profile', 'main'), {
-    ...data,
+    ...sanitizeProfile(data),
     updatedAt: serverTimestamp(),
   })
 }
 
 export async function updateUserProfile(uid: string, partial: Partial<UserProfile>): Promise<void> {
+  assertOwnUid(uid)
   await updateDoc(doc(db, 'users', uid, 'profile', 'main'), {
-    ...partial,
+    ...sanitizeProfile(partial),
     updatedAt: serverTimestamp(),
   })
 }
 
 export async function getUserProfile(uid: string): Promise<UserProfile | null> {
+  assertOwnUid(uid)
   const snap = await getDoc(doc(db, 'users', uid, 'profile', 'main'))
   if (!snap.exists()) return null
   return snap.data() as UserProfile
+}
+
+function sanitizeProfile(data: Partial<UserProfile>): Partial<UserProfile> {
+  const safe = { ...data }
+  if ('displayName' in safe) safe.displayName = sanitizeDisplayName(safe.displayName)
+  if ('focusAreas' in safe) safe.focusAreas = (safe.focusAreas ?? []).map(value => sanitizeText(value, 40)).slice(0, 10)
+  if ('ageRange' in safe) safe.ageRange = sanitizeText(safe.ageRange, 40)
+  if ('currentIntention' in safe) safe.currentIntention = sanitizeText(safe.currentIntention, 500)
+  if ('inviteCode' in safe) safe.inviteCode = sanitizeInviteCode(safe.inviteCode)
+  // Referral totals, rewards, and ownership links are server-managed.
+  delete safe.referralCount
+  delete safe.referralRewardGranted
+  delete safe.referredBy
+  delete safe.referredAt
+  return safe
 }
 
 // ── Browser push notifications ──────────────────────────────────────────────
@@ -181,6 +211,7 @@ export async function isPushSupported(): Promise<boolean> {
 export async function enablePushNotifications(
   uid: string,
 ): Promise<{ ok: true } | { error: string }> {
+  assertOwnUid(uid)
   try {
     const vapidKey = import.meta.env.VITE_FIREBASE_VAPID_KEY as string
     if (!vapidKey) return { error: 'Push notifications are not configured yet.' }
@@ -208,6 +239,7 @@ export async function enablePushNotifications(
 }
 
 export async function disablePushNotifications(uid: string): Promise<void> {
+  assertOwnUid(uid)
   try {
     if (await isPushSupported()) await deleteToken(getMessaging(app))
   } catch (err) {
@@ -235,6 +267,7 @@ function yesterdayISO(): string {
 
 /** Call once on home page mount. Returns the current streak count. */
 export async function updateStreak(uid: string): Promise<number> {
+  assertOwnUid(uid)
   const profile = await getUserProfile(uid)
   if (!profile) return 1
 
@@ -280,13 +313,19 @@ export interface SavedQuizResult extends QuizResult {
 }
 
 export async function saveQuizResult(uid: string, result: QuizResult): Promise<void> {
+  assertOwnUid(uid)
   await addDoc(collection(db, 'users', uid, 'quizResults'), {
-    ...result,
+    quizId: sanitizeText(result.quizId, 100),
+    quizTitle: sanitizeText(result.quizTitle, 160),
+    resultTypeId: sanitizeText(result.resultTypeId, 100),
+    resultTitle: sanitizeText(result.resultTitle, 160),
+    resultEmoji: sanitizeText(result.resultEmoji, 16),
     completedAt: serverTimestamp(),
   })
 }
 
 export async function getQuizResults(uid: string): Promise<SavedQuizResult[]> {
+  assertOwnUid(uid)
   const q = query(
     collection(db, 'users', uid, 'quizResults'),
     orderBy('completedAt', 'desc'),
@@ -307,12 +346,48 @@ export async function getQuizResults(uid: string): Promise<SavedQuizResult[]> {
 
 const API_BASE = '/api'
 
+async function authenticatedApi(path: string, body?: unknown): Promise<Response> {
+  if (!auth.currentUser) throw new Error('You must be signed in.')
+  const token = await auth.currentUser.getIdToken()
+  return fetch(`${API_BASE}${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+  })
+}
+
+export interface ReferralStatus {
+  inviteCode: string
+  referralCount: number
+  referralRewardGranted: boolean
+  rewardDays: number
+}
+
+export async function ensureInviteCode(): Promise<ReferralStatus> {
+  const response = await authenticatedApi('/referrals/ensure-code')
+  const data = await response.json() as Partial<ReferralStatus> & { error?: string }
+  if (!response.ok || !data.inviteCode) throw new Error(data.error ?? 'Invite code unavailable.')
+  return {
+    inviteCode: sanitizeInviteCode(data.inviteCode),
+    referralCount: Number(data.referralCount ?? 0),
+    referralRewardGranted: Boolean(data.referralRewardGranted),
+    rewardDays: Number(data.rewardDays ?? 7),
+  }
+}
+
+export async function claimInviteCode(code: string): Promise<{ ok: true; rewardGranted: boolean } | { error: string }> {
+  const response = await authenticatedApi('/referrals/claim', { inviteCode: sanitizeInviteCode(code) })
+  const data = await response.json() as { ok?: true; rewardGranted?: boolean; error?: string }
+  if (!response.ok) return { error: data.error ?? 'Invite code could not be applied.' }
+  return { ok: true, rewardGranted: Boolean(data.rewardGranted) }
+}
+
 export async function sendReminderEmail(to: string, name: string, resultTitle?: string): Promise<boolean> {
   try {
-    const res = await fetch(`${API_BASE}/send-reminder`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ to, name, resultTitle }),
+    const res = await authenticatedApi('/send-reminder', {
+      to: sanitizeEmail(to),
+      name: sanitizeDisplayName(name),
+      resultTitle: resultTitle ? sanitizeText(resultTitle, 160) : undefined,
     })
     return res.ok
   } catch {
@@ -322,10 +397,9 @@ export async function sendReminderEmail(to: string, name: string, resultTitle?: 
 
 export async function sendWelcomeEmail(to: string, name: string): Promise<void> {
   try {
-    await fetch(`${API_BASE}/send-welcome`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ to, name }),
+    await authenticatedApi('/send-welcome', {
+      to: sanitizeEmail(to),
+      name: sanitizeDisplayName(name),
     })
   } catch {
     // Non-critical — fire and forget
@@ -342,21 +416,21 @@ export interface Subscription {
 }
 
 export async function getSubscription(uid: string): Promise<Subscription | null> {
+  assertOwnUid(uid)
   const snap = await getDoc(doc(db, 'users', uid, 'subscription', 'main'))
   if (!snap.exists()) return null
   return snap.data() as Subscription
 }
 
 export async function activateSubscription(uid: string, squadRef: string): Promise<void> {
-  const expiresAt = new Date()
-  expiresAt.setDate(expiresAt.getDate() + 30)
-  await setDoc(doc(db, 'users', uid, 'subscription', 'main'), {
-    active: true,
-    expiresAt: Timestamp.fromDate(expiresAt),
-    squadRef,
-    activatedAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
+  assertOwnUid(uid)
+  const token = await auth.currentUser!.getIdToken()
+  const response = await fetch('/api/subscribe/activate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ ref: sanitizeText(squadRef, 120) }),
   })
+  if (!response.ok) throw new Error('Subscription could not be activated.')
 }
 
 // ── Check-ins ────────────────────────────────────────────────────────────────
@@ -403,17 +477,24 @@ export async function saveCheckIn(
   uid: string,
   data: Pick<CheckIn, 'mood' | 'energy' | 'reflection' | 'prompt'>,
 ): Promise<void> {
+  assertOwnUid(uid)
+  const safeData = {
+    ...data,
+    reflection: sanitizeText(data.reflection, 1000),
+    prompt: sanitizeText(data.prompt, 300),
+  }
   const dateKey = todayISO()
   const ref = doc(db, 'users', uid, 'checkins', dateKey)
   const existing = await getDoc(ref)
   if (existing.exists()) {
-    await updateDoc(ref, { ...data, updatedAt: serverTimestamp() })
+    await updateDoc(ref, { ...safeData, updatedAt: serverTimestamp() })
   } else {
-    await setDoc(ref, { ...data, createdAt: serverTimestamp(), updatedAt: serverTimestamp() })
+    await setDoc(ref, { ...safeData, createdAt: serverTimestamp(), updatedAt: serverTimestamp() })
   }
 }
 
 export async function getTodayCheckIn(uid: string): Promise<CheckIn | null> {
+  assertOwnUid(uid)
   const snap = await getDoc(doc(db, 'users', uid, 'checkins', todayISO()))
   if (!snap.exists()) return null
   return snap.data() as CheckIn
@@ -422,9 +503,10 @@ export async function getTodayCheckIn(uid: string): Promise<CheckIn | null> {
 // ── Future self intentions ───────────────────────────────────────────────────
 
 export async function saveIntention(uid: string, text: string): Promise<void> {
+  assertOwnUid(uid)
   const today = todayISO()
   await updateDoc(doc(db, 'users', uid, 'profile', 'main'), {
-    currentIntention: text,
+    currentIntention: sanitizeText(text, 500),
     intentionSetAt: today,
     intentionSurfacedAt: deleteField(),
     updatedAt: serverTimestamp(),
@@ -432,6 +514,7 @@ export async function saveIntention(uid: string, text: string): Promise<void> {
 }
 
 export async function markIntentionSurfaced(uid: string): Promise<void> {
+  assertOwnUid(uid)
   const today = todayISO()
   await updateDoc(doc(db, 'users', uid, 'profile', 'main'), {
     intentionSurfacedAt: today,
@@ -445,6 +528,7 @@ export async function getRecentCheckIns(
   uid: string,
   n = 5,
 ): Promise<Array<CheckIn & { date: string }>> {
+  assertOwnUid(uid)
   const snap = await withTimeout(
     getDocs(
       query(
@@ -488,6 +572,7 @@ export interface ClarityMetrics {
 }
 
 export async function getClarityMetrics(uid: string): Promise<ClarityMetrics> {
+  assertOwnUid(uid)
   const monthName = new Date().toLocaleString('en', { month: 'long' })
 
   // Query check-ins from last 30 days using doc-ID range (YYYY-MM-DD strings sort correctly)
@@ -546,6 +631,7 @@ export async function getClarityMetrics(uid: string): Promise<ClarityMetrics> {
 }
 
 export async function markClarityCardSeen(uid: string): Promise<void> {
+  assertOwnUid(uid)
   const month = new Date().toISOString().slice(0, 7) // YYYY-MM
   try {
     await updateDoc(doc(db, 'users', uid, 'profile', 'main'), {
@@ -564,14 +650,16 @@ export interface MoodMatch {
 }
 
 export async function saveMoodMatch(uid: string, feelingId: string, quizId: string): Promise<void> {
+  assertOwnUid(uid)
   await addDoc(collection(db, 'users', uid, 'moodMatches'), {
-    feelingId,
-    quizId,
+    feelingId: sanitizeText(feelingId, 80),
+    quizId: sanitizeText(quizId, 100),
     completedAt: serverTimestamp(),
   })
 }
 
 export async function getRecentMoodMatches(uid: string, n = 20): Promise<MoodMatch[]> {
+  assertOwnUid(uid)
   const snap = await withTimeout(
     getDocs(
       query(collection(db, 'users', uid, 'moodMatches'), orderBy('completedAt', 'desc'), limit(n)),

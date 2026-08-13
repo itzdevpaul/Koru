@@ -75,6 +75,53 @@ body {
   }
 }
 
+@keyframes koruOrbit {
+  from { transform: rotate(0deg) translateX(17px) rotate(0deg); }
+  to { transform: rotate(360deg) translateX(17px) rotate(-360deg); }
+}
+
+@keyframes koruBreathe {
+  0%, 100% { transform: scale(0.94); opacity: 0.78; }
+  50% { transform: scale(1.06); opacity: 1; }
+}
+
+.koru-loader {
+  position: relative;
+  width: 56px;
+  height: 56px;
+  display: grid;
+  place-items: center;
+  color: #1B3B2B;
+}
+
+.koru-loader-compact {
+  transform: scale(0.72);
+  transform-origin: center;
+}
+
+.koru-loader-core {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border-radius: 14px;
+  background: rgba(162,191,166,0.2);
+  font-size: 20px;
+  animation: koruBreathe 1.7s ease-in-out infinite;
+}
+
+.koru-loader-leaf {
+  position: absolute;
+  font-size: 11px;
+  color: #A2BFA6;
+  animation: koruOrbit 1.7s linear infinite;
+}
+
+.koru-loader-leaf-two {
+  color: #E07A5F;
+  animation-delay: -0.85s;
+}
+
 .animate-fade-up {
   animation: fadeUp 0.7s ease forwards;
 }
