@@ -433,6 +433,26 @@ export async function activateSubscription(uid: string, squadRef: string): Promi
   if (!response.ok) throw new Error('Subscription could not be activated.')
 }
 
+// ── One-time report unlocks ──────────────────────────────────────────────────
+
+export async function getUnlockedReports(uid: string): Promise<string[]> {
+  assertOwnUid(uid)
+  const snap = await withTimeout(getDocs(collection(db, 'users', uid, 'unlocks')), 8_000)
+  return snap.docs.map(d => d.id)
+}
+
+export async function initiateReportUnlock(quizId: string): Promise<{ checkout_url: string; ref: string }> {
+  const response = await authenticatedApi('/unlock/initiate', { quizId: sanitizeText(quizId, 100) })
+  const data = await response.json() as { checkout_url?: string; ref?: string; error?: string }
+  if (!response.ok || !data.checkout_url) throw new Error(data.error ?? 'Could not start payment.')
+  return { checkout_url: data.checkout_url, ref: data.ref }
+}
+
+export async function activateReportUnlock(ref: string): Promise<void> {
+  const response = await authenticatedApi('/unlock/activate', { ref: sanitizeText(ref, 120) })
+  if (!response.ok) throw new Error('Report unlock could not be activated.')
+}
+
 // ── Pricing (discounts for referrals & anniversary) ──────────────────────────
 
 export interface Pricing {
@@ -440,6 +460,7 @@ export interface Pricing {
   discountPercent: number
   finalAmount: number      // in naira
   discountReason: string
+  unlockAmount: number    // one-time report unlock price in naira
 }
 
 export async function getPricing(): Promise<Pricing> {
@@ -451,6 +472,7 @@ export async function getPricing(): Promise<Pricing> {
     discountPercent: Number(data.discountPercent ?? 0),
     finalAmount: Number(data.finalAmount ?? 2500),
     discountReason: String(data.discountReason ?? ''),
+    unlockAmount: Number(data.unlockAmount ?? 1000),
   }
 }
 

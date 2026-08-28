@@ -27,6 +27,7 @@ export default function Home() {
   const [loadingResults, setLoadingResults] = useState(true)
   const [streak, setStreak] = useState(0)
   const [expiryDismissed, setExpiryDismissed] = useState(false)
+  const [showStreakPrompt, setShowStreakPrompt] = useState(false)
 
   // ── Ad modal ──
   const [activeAd, setActiveAd] = useState<Ad | null>(null)
@@ -262,6 +263,13 @@ export default function Home() {
 
   const allPatternObs = analyzePatterns(patternCheckIns)
   const patternObservations = allPatternObs.filter(o => !getSeenPatternIds().includes(o.id))
+
+  // ── Streak upgrade prompt: triggers at 3-day streak for free users (after sub state loads) ──
+  useEffect(() => {
+    if (streak >= 3 && !isPro && !subLoading && !sessionStorage.getItem('koru-streak-prompt-seen')) {
+      setShowStreakPrompt(true)
+    }
+  }, [streak, isPro, subLoading])
 
   return (
     <div className="min-h-screen" style={{ background: c.bg, transition: 'background 0.25s' }}>
@@ -1019,27 +1027,11 @@ export default function Home() {
             </span>
           </div>
 
-          {/* Pro upsell banner for free users */}
-          {!isPro && (
-            <Link
-              to="/upgrade"
-              className="flex items-center gap-3 px-5 py-3.5 rounded-2xl mb-4 transition-opacity hover:opacity-80"
-              style={{ background: 'rgba(224,122,95,0.10)', border: '1.5px solid rgba(224,122,95,0.25)', textDecoration: 'none' }}
-            >
-              <span className="text-xl">⭐</span>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold" style={{ fontFamily: F, color: '#c0513a' }}>Unlock with Koru Pro</p>
-                <p className="text-xs" style={{ fontFamily: I, color: '#d06a50' }}>₦2,500/month — full access to all 18+ quizzes</p>
-              </div>
-              <span className="text-xs font-bold flex-shrink-0" style={{ fontFamily: F, color: '#E07A5F' }}>Upgrade →</span>
-            </Link>
-          )}
-
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {quizzes.filter(q => q.mature).map(quiz => {
               const done = completedIds.has(quiz.id)
               const myResult = results.find(r => r.quizId === quiz.id)
-              const locked = !isPro
+              const locked = false
 
               const cardContent = (
                 <>

@@ -1,11 +1,11 @@
 import { useState } from 'react'
-import { useParams, useNavigate, Link } from 'react-router-dom'
+import { useParams, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
 import { useSubscription } from '../context/SubscriptionContext'
-import { saveQuizResult, saveMoodMatch } from '../firebase'
+import { saveQuizResult, saveMoodMatch, initiateReportUnlock } from '../firebase'
 import { getQuizById, scoreQuiz, type QuizResultType } from '../data/quizzes'
-import { canTakeQuiz, recordQuizCompletion, formatTimeRemaining, FREE_QUIZ_LIMIT } from '../utils/quizRateLimit'
+import { getDeepReport } from '../data/deepReports'
 import { generateQuizShareImage, shareOrDownloadImage } from '../utils/shareImage'
 
 type Phase = 'intro' | 'question' | 'result'
@@ -17,8 +17,7 @@ export default function Quiz() {
   const { id } = useParams<{ id: string }>()
   const { user } = useAuth()
   const { isDark, c } = useTheme()
-  const { isPro, loading: subLoading } = useSubscription()
-  const navigate = useNavigate()
+  const { hasReportAccess, loading: subLoading } = useSubscription()
   const quiz = id ? getQuizById(id) : undefined
 
   const [phase, setPhase] = useState<Phase>('intro')
@@ -30,7 +29,8 @@ export default function Quiz() {
   const [saving, setSaving] = useState(false)
   const [shareMsg, setShareMsg] = useState('')
   const [sharingImage, setSharingImage] = useState(false)
-  const [rateLimitHit, setRateLimitHit] = useState(false)
+  const [unlocking, setUnlocking] = useState(false)
+  const [unlockError, setUnlockError] = useState('')
 
   if (!quiz) {
     return (
@@ -41,56 +41,13 @@ export default function Quiz() {
     )
   }
 
-  // ── Paywall gate for Pro / mature quizzes ─────────────────────────────────
-  if ((quiz.mature || quiz.pro) && !subLoading && !isPro) {
-    const isMature = quiz.mature
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center px-5" style={{ background: c.bg }}>
-        <div
-          className="w-full max-w-sm rounded-3xl p-8 text-center"
-          style={{ background: c.card, border: `1.5px solid rgba(224,122,95,0.25)`, boxShadow: '0 8px 40px rgba(27,59,43,0.1)' }}
-        >
-          <div className="w-16 h-16 rounded-3xl flex items-center justify-center text-3xl mx-auto mb-5" style={{ background: 'rgba(224,122,95,0.12)' }}>
-            🔒
-          </div>
-          <h2 className="text-xl font-bold mb-2" style={{ fontFamily: F, color: c.forest }}>Koru Pro required</h2>
-          <p className="text-sm mb-2" style={{ fontFamily: I, color: c.body, lineHeight: 1.65 }}>
-            <strong style={{ color: c.forest }}>{quiz.title}</strong> is{isMature ? ' an 18+ quiz' : ' a Pro-exclusive quiz'} available to Pro subscribers.
-          </p>
-          <p className="text-sm mb-7" style={{ fontFamily: I, color: c.muted, lineHeight: 1.65 }}>
-            {isMature
-              ? 'Upgrade for ₦2,500/month and get full access to all intimacy & relationship quizzes.'
-              : 'Upgrade for ₦2,500/month and unlock all relationship, boundary, and mindset diagnostics.'}
-          </p>
-          <Link
-            to="/upgrade"
-            className="block w-full py-3.5 rounded-2xl text-sm font-semibold text-white text-center mb-3 transition-opacity hover:opacity-90"
-            style={{ fontFamily: F, background: '#1B3B2B' }}
-          >
-            Upgrade to Pro →
-          </Link>
-          <Link
-            to="/home"
-            className="block text-sm transition-opacity hover:opacity-60"
-            style={{ fontFamily: I, color: c.muted }}
-          >
-            ← Back to home
-          </Link>
-        </div>
-      </div>
-    )
-  }
+  // Wait for subscription state before deciding access — but never block the quiz
+  const canAccessReport = !subLoading && hasReportAccess(quiz.id)
 
   const question = quiz.questions[currentQ]
   const progress = phase === 'result' ? 100 : (currentQ / quiz.questions.length) * 100
 
   function handleStart() {
-    // Rate-limit free users to FREE_QUIZ_LIMIT completions per 12 hours
-    if (!isPro && !canTakeQuiz()) {
-      setRateLimitHit(true)
-      return
-    }
-    setRateLimitHit(false)
     setPhase('question')
     setCurrentQ(0)
     setSelected(null)
@@ -108,7 +65,6 @@ export default function Quiz() {
     setAnimating(true)
 
     setTimeout(() => {
-      // quiz is guaranteed non-null here (guarded at top of component)
       const q_ = quiz!
       if (currentQ < q_.questions.length - 1) {
         setCurrentQ(q => q + 1)
@@ -119,8 +75,6 @@ export default function Quiz() {
         setResult(finalResult)
         setPhase('result')
         setAnimating(false)
-        // Record completion for rate-limiting (free users only)
-        if (!isPro) recordQuizCompletion()
         if (user) {
           setSaving(true)
           saveQuizResult(user.uid, {
@@ -130,7 +84,6 @@ export default function Quiz() {
             resultTitle: finalResult.title,
             resultEmoji: finalResult.emoji,
           }).then(() => {
-            // Record mood match if this quiz was launched from the matcher
             const pending = sessionStorage.getItem('koru-mood-pending')
             if (pending) {
               try {
@@ -168,6 +121,25 @@ export default function Quiz() {
       setTimeout(() => setShareMsg(''), 3500)
     }
   }
+
+  async function handleUnlock() {
+    if (!user) return
+    setUnlocking(true)
+    setUnlockError('')
+    try {
+      const { checkout_url, ref } = await initiateReportUnlock(quiz!.id)
+      sessionStorage.setItem('koru-payment-ref', ref)
+      sessionStorage.setItem('koru-payment-uid', user.uid)
+      sessionStorage.setItem('koru-payment-type', 'unlock')
+      sessionStorage.setItem('koru-unlock-quiz', quiz!.id)
+      window.location.href = checkout_url
+    } catch (err) {
+      setUnlockError(err instanceof Error ? err.message : 'Could not start payment. Please try again.')
+      setUnlocking(false)
+    }
+  }
+
+  const deepReport = result ? getDeepReport(quiz.id, result.id) : null
 
   return (
     <div className="min-h-screen flex flex-col" style={{ background: c.bg, transition: 'background 0.25s' }}>
@@ -221,36 +193,13 @@ export default function Quiz() {
               <h1 className="text-2xl sm:text-3xl font-bold mb-3" style={{ fontFamily: F, color: c.forest }}>{quiz.title}</h1>
               <p className="text-sm mb-3 max-w-sm mx-auto" style={{ fontFamily: I, color: c.body, lineHeight: 1.65 }}>{quiz.description}</p>
               <p className="text-xs mb-10" style={{ fontFamily: I, color: c.sage }}>{quiz.questions.length} questions · ~{quiz.estimatedMinutes} min</p>
-              {rateLimitHit ? (
-                <div
-                  className="rounded-2xl px-6 py-5 text-center"
-                  style={{ background: c.surface, border: `1.5px solid ${c.cardBorder}` }}
-                >
-                  <p className="text-2xl mb-2">⏳</p>
-                  <p className="text-sm font-bold mb-1" style={{ fontFamily: F, color: c.forest }}>
-                    Daily limit reached
-                  </p>
-                  <p className="text-xs leading-relaxed mb-3" style={{ fontFamily: I, color: c.body }}>
-                    Free accounts can complete {FREE_QUIZ_LIMIT} quizzes every 12 hours. Come back in{' '}
-                    <span style={{ color: c.forest, fontWeight: 600 }}>{formatTimeRemaining()}</span>.
-                  </p>
-                  <Link
-                    to="/upgrade"
-                    className="inline-block px-5 py-2.5 rounded-xl text-xs font-semibold text-white transition-opacity hover:opacity-90"
-                    style={{ fontFamily: F, background: '#1B3B2B' }}
-                  >
-                    Upgrade for unlimited →
-                  </Link>
-                </div>
-              ) : (
-                <button
-                  onClick={handleStart}
-                  className="px-8 py-4 rounded-2xl text-sm font-semibold text-white transition-all duration-200 hover:opacity-90 active:scale-95"
-                  style={{ fontFamily: F, background: '#1B3B2B' }}
-                >
-                  Start quiz →
-                </button>
-              )}
+              <button
+                onClick={handleStart}
+                className="px-8 py-4 rounded-2xl text-sm font-semibold text-white transition-all duration-200 hover:opacity-90 active:scale-95"
+                style={{ fontFamily: F, background: '#1B3B2B' }}
+              >
+                Start quiz →
+              </button>
             </div>
           )}
 
@@ -304,7 +253,7 @@ export default function Quiz() {
           {/* ── Result ── */}
           {phase === 'result' && result && (
             <div className="animate-fade-up">
-              {/* Result card */}
+              {/* Result card — teaser (always visible) */}
               <div
                 className="rounded-3xl p-7 sm:p-9 mb-6 text-center"
                 style={{
@@ -322,42 +271,14 @@ export default function Quiz() {
                 <p className="text-base font-semibold mb-5" style={{ fontFamily: F, color: result.color }}>{result.tagline}</p>
                 <div className="h-px mb-5" style={{ background: c.cardBorder }} />
 
-                {/* Free-user teaser: blur description + traits for non-mature quizzes */}
-                {!isPro && !quiz.mature ? (
-                  <div className="relative">
-                    {/* Blurred preview */}
-                    <div style={{ filter: 'blur(5px)', userSelect: 'none', pointerEvents: 'none', opacity: 0.6 }}>
-                      <p className="text-sm leading-relaxed mb-6 text-left" style={{ fontFamily: I, color: c.body }}>{result.description}</p>
-                      <div className="flex flex-wrap gap-2 justify-center">
-                        {result.traits.map(trait => (
-                          <span key={trait} className="px-3 py-1 rounded-full text-xs font-semibold"
-                            style={{ fontFamily: I, background: result.tagBg, color: result.color }}>{trait}</span>
-                        ))}
-                      </div>
-                    </div>
-                    {/* Upgrade overlay */}
-                    <div
-                      className="absolute inset-0 flex flex-col items-center justify-center rounded-2xl p-4"
-                      style={{ background: isDark ? 'rgba(30,42,36,0.88)' : 'rgba(251,249,245,0.88)', backdropFilter: 'blur(4px)' }}
-                    >
-                      <span className="text-2xl mb-2">⭐</span>
-                      <p className="text-sm font-bold mb-1 text-center" style={{ fontFamily: F, color: c.forest }}>Full result — Koru Pro only</p>
-                      <p className="text-xs text-center mb-4" style={{ fontFamily: I, color: c.body, lineHeight: 1.55 }}>
-                        Upgrade to read your complete description and personality traits.
-                      </p>
-                      <Link
-                        to="/upgrade"
-                        className="px-5 py-2.5 rounded-2xl text-xs font-semibold text-white transition-opacity hover:opacity-90"
-                        style={{ fontFamily: F, background: '#1B3B2B' }}
-                      >
-                        Upgrade to Pro →
-                      </Link>
-                    </div>
-                  </div>
-                ) : (
-                  <>
-                    <p className="text-sm leading-relaxed mb-6 text-left" style={{ fontFamily: I, color: c.body }}>{result.description}</p>
-                    <div className="flex flex-wrap gap-2 justify-center">
+                {/* ── Deep report: full access (Pro or one-time unlocked) ── */}
+                {canAccessReport ? (
+                  <div className="text-left">
+                    {/* Description */}
+                    <p className="text-sm leading-relaxed mb-6" style={{ fontFamily: I, color: c.body }}>{result.description}</p>
+
+                    {/* Traits */}
+                    <div className="flex flex-wrap gap-2 justify-center mb-6">
                       {result.traits.map(trait => (
                         <span
                           key={trait}
@@ -368,7 +289,109 @@ export default function Quiz() {
                         </span>
                       ))}
                     </div>
-                  </>
+
+                    {/* Deep-dive report */}
+                    {deepReport && (
+                      <>
+                        <div className="rounded-2xl p-5 mb-5" style={{ background: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(27,59,43,0.04)' }}>
+                          <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ fontFamily: I, color: c.sage }}>
+                            📖 Deep-dive report
+                          </p>
+                          {deepReport.deepDive.map((para, i) => (
+                            <p key={i} className="text-sm leading-relaxed mb-3 last:mb-0" style={{ fontFamily: I, color: c.body }}>
+                              {para}
+                            </p>
+                          ))}
+                        </div>
+
+                        {/* Action plan */}
+                        <div className="rounded-2xl p-5" style={{ background: isDark ? 'rgba(224,122,95,0.06)' : 'rgba(224,122,95,0.05)' }}>
+                          <p className="text-xs font-bold uppercase tracking-widest mb-4" style={{ fontFamily: I, color: '#E07A5F' }}>
+                            ✦ Your action plan
+                          </p>
+                          <div className="flex flex-col gap-4">
+                            {deepReport.actionPlan.map((step, i) => (
+                              <div key={i} className="flex items-start gap-3">
+                                <div
+                                  className="w-7 h-7 rounded-xl flex items-center justify-center text-xs font-bold flex-shrink-0"
+                                  style={{ background: '#E07A5F', color: '#fff', fontFamily: F }}
+                                >
+                                  {i + 1}
+                                </div>
+                                <div>
+                                  <p className="text-sm font-semibold mb-0.5" style={{ fontFamily: F, color: c.forest }}>{step.title}</p>
+                                  <p className="text-xs leading-relaxed" style={{ fontFamily: I, color: c.body }}>{step.detail}</p>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                ) : (
+                  /* ── Paywall: teaser + unlock CTA ── */
+                  <div className="text-left">
+                    {/* Preview snippet (first 2 sentences — not blurred, creates curiosity gap) */}
+                    <p className="text-sm leading-relaxed mb-4" style={{ fontFamily: I, color: c.body }}>
+                      {result.description.split('. ').slice(0, 2).join('. ')}...
+                    </p>
+
+                    {/* What's inside the deep report */}
+                    <div
+                      className="rounded-2xl p-5 mb-5"
+                      style={{ background: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(27,59,43,0.04)' }}
+                    >
+                      <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ fontFamily: I, color: c.sage }}>
+                        ✦ Unlock your full report
+                      </p>
+                      <ul className="flex flex-col gap-2.5">
+                        <li className="flex items-start gap-2.5">
+                          <span className="text-sm flex-shrink-0">📖</span>
+                          <span className="text-xs leading-relaxed" style={{ fontFamily: I, color: c.body }}>
+                            <strong style={{ color: c.forest }}>Deep-dive analysis</strong> — a multi-paragraph breakdown of what your result really means for your life and relationships
+                          </span>
+                        </li>
+                        <li className="flex items-start gap-2.5">
+                          <span className="text-sm flex-shrink-0">✦</span>
+                          <span className="text-xs leading-relaxed" style={{ fontFamily: I, color: c.body }}>
+                            <strong style={{ color: c.forest }}>Personalised action plan</strong> — 3 concrete, practical steps to turn this insight into real change
+                          </span>
+                        </li>
+                        <li className="flex items-start gap-2.5">
+                          <span className="text-sm flex-shrink-0">🏷️</span>
+                          <span className="text-xs leading-relaxed" style={{ fontFamily: I, color: c.body }}>
+                            <strong style={{ color: c.forest }}>Your full trait profile</strong> — the complete picture of your strengths and growth edges
+                          </span>
+                        </li>
+                      </ul>
+                    </div>
+
+                    {/* One-time unlock CTA */}
+                    <button
+                      onClick={handleUnlock}
+                      disabled={unlocking}
+                      className="w-full py-3.5 rounded-2xl text-sm font-semibold text-white transition-all duration-200 hover:opacity-90 active:scale-[0.98] disabled:opacity-50 mb-3"
+                      style={{ fontFamily: F, background: '#E07A5F' }}
+                    >
+                      {unlocking ? 'Opening payment…' : 'Unlock this report — ₦1,000'}
+                    </button>
+                    {unlockError && (
+                      <p className="text-center text-xs mb-3" style={{ fontFamily: I, color: '#E07A5F' }}>{unlockError}</p>
+                    )}
+
+                    {/* Or go Pro */}
+                    <Link
+                      to="/upgrade"
+                      className="block w-full py-3.5 rounded-2xl text-sm font-semibold text-center transition-all duration-200 hover:opacity-80 active:scale-[0.98] mb-2"
+                      style={{ fontFamily: F, background: c.surface, color: c.forest, border: `1.5px solid ${c.cardBorder}` }}
+                    >
+                      Get all reports with Pro — from ₦1,000/mo →
+                    </Link>
+                    <p className="text-center text-xs" style={{ fontFamily: I, color: c.muted }}>
+                      One-time unlock is yours forever. Pro unlocks <strong>every</strong> report + the 30-Day Clarity Delta.
+                    </p>
+                  </div>
                 )}
               </div>
 

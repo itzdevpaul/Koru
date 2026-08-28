@@ -26,16 +26,22 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
   const [isExpired, setIsExpired] = useState(false)
   const [expiresAt, setExpiresAt] = useState<Date | null>(null)
   const [daysLeft, setDaysLeft] = useState<number | null>(null)
+  const [unlockedQuizIds, setUnlockedQuizIds] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
 
   const refresh = useCallback(async () => {
     if (!user) {
       setIsPro(false); setIsExpired(false)
       setExpiresAt(null); setDaysLeft(null)
+      setUnlockedQuizIds([])
       setLoading(false); return
     }
     try {
-      const sub = await getSubscription(user.uid)
+      const [sub, unlocked] = await Promise.all([
+        getSubscription(user.uid),
+        getUnlockedReports(user.uid),
+      ])
+      setUnlockedQuizIds(unlocked)
       const now = new Date()
       if (sub?.active && sub.expiresAt) {
         const exp = sub.expiresAt.toDate()
@@ -57,10 +63,15 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     } catch {
       setIsPro(false); setIsExpired(false)
       setExpiresAt(null); setDaysLeft(null)
+      setUnlockedQuizIds([])
     } finally {
       setLoading(false)
     }
   }, [user])
+
+  const hasReportAccess = useCallback((quizId: string) =>
+    isPro || unlockedQuizIds.includes(quizId),
+  [isPro, unlockedQuizIds])
 
   useEffect(() => { refresh() }, [refresh])
 
