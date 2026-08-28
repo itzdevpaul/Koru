@@ -19,7 +19,7 @@ const I = "'Inter', sans-serif"
 export default function Home() {
   const { user } = useAuth()
   const { isDark, toggleTheme, c } = useTheme()
-  const { isPro, isExpired, daysLeft } = useSubscription()
+  const { isPro, isExpired, daysLeft, loading: subLoading } = useSubscription()
   const navigate = useNavigate()
 
   const [signingOut, setSigningOut] = useState(false)

@@ -445,7 +445,7 @@ export async function initiateReportUnlock(quizId: string): Promise<{ checkout_u
   const response = await authenticatedApi('/unlock/initiate', { quizId: sanitizeText(quizId, 100) })
   const data = await response.json() as { checkout_url?: string; ref?: string; error?: string }
   if (!response.ok || !data.checkout_url) throw new Error(data.error ?? 'Could not start payment.')
-  return { checkout_url: data.checkout_url, ref: data.ref }
+  return { checkout_url: data.checkout_url, ref: data.ref ?? '' }
 }
 
 export async function activateReportUnlock(ref: string): Promise<void> {
