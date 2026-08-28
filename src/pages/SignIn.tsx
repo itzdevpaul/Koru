@@ -1,6 +1,7 @@
 import { useState, FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { signIn, signInWithGoogle } from '../firebase'
+import KoruLogo from '../components/KoruLogo'
 
 export default function SignIn() {
   const navigate = useNavigate()
@@ -42,19 +43,8 @@ export default function SignIn() {
       style={{ background: 'linear-gradient(160deg, #FBF9F5 0%, #EEF4EF 100%)' }}
     >
       {/* Logo */}
-      <Link to="/" className="flex items-center gap-2.5 mb-10 group">
-        <div
-          className="w-10 h-10 rounded-2xl flex items-center justify-center text-xl transition-transform duration-200 group-hover:scale-105"
-          style={{ background: '#1B3B2B' }}
-        >
-          🌿
-        </div>
-        <span
-          className="text-xl font-bold tracking-tight"
-          style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", color: '#1B3B2B' }}
-        >
-          Koru
-        </span>
+      <Link to="/" className="mb-10 group transition-transform duration-200 group-hover:scale-105">
+        <KoruLogo size={36} />
       </Link>
 
       {/* Card */}

@@ -139,6 +139,15 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    // ── Notifications ──────────────────────────────────────────────────────────
+    // /users/{uid}/notifications/{notificationId} — created server-side (Admin SDK)
+    // when someone uses the owner's invite code. Owner may read; admin may read.
+    // Client writes are blocked (notifications are server-managed).
+    match /users/{uid}/notifications/{notificationId} {
+      allow read: if isOwner(uid) || isAdmin();
+      allow write: if false;
+    }
+
     // ── Everything else: deny ─────────────────────────────────────────────────
     // Catch-all explicit deny. Any collection not listed above is inaccessible
     // to all clients, regardless of auth state.

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { saveUserProfile, getUserProfile } from '../firebase'
 import KoruLoader from '../components/KoruLoader'
+import KoruLogo from '../components/KoruLogo'
 
 const FOCUS_OPTIONS = [
   { id: 'career', emoji: '🧭', label: 'Career & Hobbies', body: 'Find work and pursuits that actually fit you.' },
@@ -91,11 +92,8 @@ export default function Onboarding() {
         {/* ── Step: Welcome ── */}
         {step === 'welcome' && (
           <div className="text-center animate-fade-up">
-            <div
-              className="w-16 h-16 rounded-3xl flex items-center justify-center text-3xl mx-auto mb-6"
-              style={{ background: '#1B3B2B' }}
-            >
-              🌿
+            <div className="mx-auto mb-6 w-fit">
+              <KoruLogo size={48} showWordmark={false} />
             </div>
             <h1
               className="text-3xl sm:text-4xl font-bold mb-3"

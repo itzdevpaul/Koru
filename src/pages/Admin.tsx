@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useTheme } from '../context/ThemeContext'
 import { auth, googleProvider, signOut, onAuthStateChanged, getAllAds, saveAd, toggleAdActive, deleteAd, type Ad } from '../firebase'
 import { signInWithPopup, type User } from 'firebase/auth'
+import KoruLogo from '../components/KoruLogo'
 
 const F = "'Plus Jakarta Sans', sans-serif"
 const I = "'Inter', sans-serif"
@@ -223,8 +224,8 @@ export default function Admin() {
           style={{ background: c.card, border: `1.5px solid ${c.cardBorder}`, boxShadow: '0 8px 40px rgba(27,59,43,0.1)' }}
         >
           <div className="flex items-center gap-2.5 mb-8">
-            <div className="w-9 h-9 rounded-xl flex items-center justify-center text-lg" style={{ background: '#1B3B2B' }}>🌿</div>
-            <span className="font-bold text-sm" style={{ fontFamily: F, color: c.forest }}>Koru Admin</span>
+            <KoruLogo size={30} wordmarkSize={16} />
+            <span className="font-bold text-sm" style={{ fontFamily: F, color: c.forest }}>Admin</span>
           </div>
 
           <h1 className="text-xl font-bold mb-1" style={{ fontFamily: F, color: c.forest }}>Sign in</h1>
@@ -266,8 +267,8 @@ export default function Admin() {
         style={{ background: c.bgGlass, borderBottom: `1px solid ${c.navBorder}`, backdropFilter: 'blur(16px)' }}
       >
         <div className="flex items-center gap-3">
-          <div className="w-7 h-7 rounded-lg flex items-center justify-center text-sm" style={{ background: '#1B3B2B' }}>🌿</div>
-          <span className="font-bold text-sm" style={{ fontFamily: F, color: c.forest }}>Koru Admin</span>
+          <KoruLogo size={22} wordmarkSize={15} />
+          <span className="font-bold text-sm" style={{ fontFamily: F, color: c.forest }}>Admin</span>
           <span className="text-xs px-2 py-0.5 rounded-full" style={{ fontFamily: I, background: 'rgba(224,122,95,0.12)', color: '#E07A5F' }}>Private</span>
         </div>
         <div className="flex items-center gap-3">

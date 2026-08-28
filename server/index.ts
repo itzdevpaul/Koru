@@ -42,6 +42,76 @@ function safeInviteCode(value: unknown): string {
   return String(value ?? '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12)
 }
 
+const BASE_PRICE_KOBO = 250000 // ₦2,500
+
+function calculatePrice(referredBy: boolean): {
+  amount: number
+  discountPercent: number
+  discountReason: string
+} {
+  const now = new Date()
+  // Anniversary: September 4 (month is 0-indexed, so September = 8)
+  const isAnniversary = now.getMonth() === 8 && now.getDate() === 4
+  if (isAnniversary) {
+    return {
+      amount: Math.round(BASE_PRICE_KOBO * 0.5),
+      discountPercent: 50,
+      discountReason: 'Happy Anniversary! 50% off Koru Pro',
+    }
+  }
+  if (referredBy) {
+    return {
+      amount: Math.round(BASE_PRICE_KOBO * 0.95),
+      discountPercent: 5,
+      discountReason: 'Invite code benefit — 5% off',
+    }
+  }
+  return { amount: BASE_PRICE_KOBO, discountPercent: 0, discountReason: '' }
+}
+
+async function notifyInviter(inviterUid: string, referralCount: number, rewardGranted: boolean): Promise<void> {
+  try {
+    const firestore = getFirestore(getAdminApp())
+
+    // Create a notification document for the inviter
+    const message = rewardGranted
+      ? "Your invite code was used! You've reached 10 referrals — 7 days of Pro unlocked! 🎉"
+      : `Your invite code was used! ${referralCount} of 10 referrals — keep inviting to unlock Pro.`
+    await firestore.collection(`users/${inviterUid}/notifications`).add({
+      type: 'referral',
+      title: 'Your invite code was used! 🎉',
+      message,
+      referralCount,
+      rewardGranted,
+      read: false,
+      createdAt: new Date(),
+    })
+
+    // Try to send a push notification if the inviter has push enabled
+    const profileSnap = await firestore.doc(`users/${inviterUid}/profile/main`).get()
+    const pushToken = profileSnap.data()?.pushToken
+    const pushEnabled = profileSnap.data()?.pushNotificationsEnabled
+    if (pushToken && pushEnabled) {
+      try {
+        await getMessaging(getAdminApp()).send({
+          token: pushToken,
+          notification: {
+            title: 'Your invite code was used! 🎉',
+            body: rewardGranted
+              ? '10 referrals reached — 7 days of Pro unlocked!'
+              : `${referralCount} of 10 invites — keep going!`,
+          },
+          data: { url: '/profile' },
+        })
+      } catch (err) {
+        console.warn('[Koru] Referral push notification failed:', err instanceof Error ? err.message : err)
+      }
+    }
+  } catch (err) {
+    console.error('[Koru] Failed to notify inviter:', err instanceof Error ? err.message : err)
+  }
+}
+
 const app = express()
 const PORT = 3001
 
@@ -131,6 +201,11 @@ app.post('/api/subscribe/initiate', async (req, res) => {
     const key = process.env.SQUAD_SECRET_KEY
     if (!key) { res.status(500).json({ error: 'SQUAD_SECRET_KEY not configured' }); return }
 
+    // Check if user was referred for discount eligibility
+    const profileSnap = await getFirestore(getAdminApp()).doc(`users/${decoded.uid}/profile/main`).get()
+    const referredBy = Boolean(profileSnap.exists && profileSnap.data()?.referredBy)
+    const price = calculatePrice(referredBy)
+
     const ref = `koru_sub_${uid}_${Date.now()}`
 
     // Build callback URL — trust origin only for known safe patterns
@@ -149,7 +224,7 @@ app.post('/api/subscribe/initiate', async (req, res) => {
       },
       body: JSON.stringify({
         email: decoded.email,
-        amount: 250000, // ₦2,500 in kobo
+        amount: price.amount,
         currency: 'NGN',
         initiate_type: 'inline', // required for Squad to return checkout_url
         transaction_ref: ref,
@@ -315,7 +390,7 @@ app.post('/api/referrals/claim', async (req, res) => {
         transaction.get(subscriptionRef),
       ])
       if (inviteeProfile.data()?.referredBy) throw new Error('An invite code has already been applied to this account.')
-      if (referral.exists) return { rewardGranted: false }
+      if (referral.exists) return { rewardGranted: false, ownerUid: '', referralCount: 0 }
 
       const profile = inviterProfile.data() ?? {}
       const count = Number(profile.referralCount ?? 0) + 1
@@ -349,8 +424,14 @@ app.post('/api/referrals/claim', async (req, res) => {
           updatedAt: new Date(),
         }, { merge: true })
       }
-      return { rewardGranted: rewardGranted && !profile.referralRewardGranted }
+      return { rewardGranted: rewardGranted && !profile.referralRewardGranted, ownerUid, referralCount: count }
     })
+
+    // Alert the inviter that their code was used
+    if (result.ownerUid) {
+      void notifyInviter(result.ownerUid, result.referralCount, result.rewardGranted)
+    }
+
     res.json({ ok: true, rewardGranted: result.rewardGranted })
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unknown error'

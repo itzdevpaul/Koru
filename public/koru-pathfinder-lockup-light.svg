@@ -1,0 +1,13 @@
+<svg width="920" height="260" viewBox="0 0 920 260" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <title>Koru Pathfinder K light logo lockup</title>
+  <desc>The light Koru wordmark paired with the Pathfinder K symbol for dark backgrounds.</desc>
+  <g transform="translate(22 50) scale(1)">
+    <path d="M43 18V142" stroke="#F4F0E7" stroke-width="14" stroke-linecap="square"/>
+    <path d="M43 80C58 80 66 70 74 51C81 33 91 20 107 20C120 20 127 28 126 39C125 52 113 59 98 66L76 76C62 82 59 95 66 108C73 121 91 130 108 122C119 117 125 108 126 97" stroke="#F4F0E7" stroke-width="14" stroke-linecap="square" stroke-linejoin="round"/>
+    <path d="M43 80L107 139" stroke="#F4F0E7" stroke-width="14" stroke-linecap="square"/>
+    <path d="M43 80L78 48" stroke="#E3B64E" stroke-width="4" stroke-linecap="square"/>
+    <circle cx="43" cy="80" r="4.5" fill="#E3B64E"/>
+  </g>
+  <text x="205" y="158" fill="#F4F0E7" font-family="Georgia, 'Times New Roman', serif" font-size="132" font-weight="500" letter-spacing="-8">Koru</text>
+  <text x="213" y="204" fill="#E3B64E" font-family="Arial, sans-serif" font-size="18" font-weight="700" letter-spacing="5">MAKE ROOM TO KNOW</text>
+</svg>

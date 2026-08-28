@@ -1,19 +1,27 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
 import { useSubscription } from '../context/SubscriptionContext'
+import { getPricing, type Pricing } from '../firebase'
+import KoruLogo from '../components/KoruLogo'
 
 const F = "'Plus Jakarta Sans', sans-serif"
 const I = "'Inter', sans-serif"
 
 export default function Upgrade() {
   const { user } = useAuth()
-  const { c } = useTheme()
+  const { isDark, c } = useTheme()
   const { isPro, isExpired, daysLeft } = useSubscription()
 
   const [initiating, setInitiating] = useState(false)
   const [error, setError] = useState('')
+  const [pricing, setPricing] = useState<Pricing | null>(null)
+
+  useEffect(() => {
+    if (!user) return
+    getPricing().then(setPricing).catch(() => {})
+  }, [user])
 
   async function handleSubscribe() {
     if (!user?.email) return
@@ -64,8 +72,7 @@ export default function Upgrade() {
           Back
         </Link>
         <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-xl flex items-center justify-center text-sm" style={{ background: '#1B3B2B' }}>🌿</div>
-          <span className="text-sm font-bold" style={{ fontFamily: F, color: c.forest }}>Koru</span>
+          <KoruLogo size={22} tone={isDark ? 'paper' : 'ink'} wordmarkSize={15} />
         </div>
       </header>
 
@@ -96,10 +103,28 @@ export default function Upgrade() {
           }}
         >
           {/* Price */}
-          <div className="flex items-end gap-2 mb-6">
-            <span className="text-4xl font-bold" style={{ fontFamily: F, color: c.forest }}>₦2,500</span>
+          <div className="flex items-end gap-2 mb-2">
+            {pricing && pricing.discountPercent > 0 ? (
+              <>
+                <span className="text-4xl font-bold" style={{ fontFamily: F, color: c.forest }}>
+                  ₦{pricing.finalAmount.toLocaleString()}
+                </span>
+                <span className="text-lg mb-1.5 line-through" style={{ fontFamily: I, color: c.muted }}>
+                  ₦{pricing.baseAmount.toLocaleString()}
+                </span>
+              </>
+            ) : (
+              <span className="text-4xl font-bold" style={{ fontFamily: F, color: c.forest }}>₦2,500</span>
+            )}
             <span className="text-sm mb-1.5" style={{ fontFamily: I, color: c.muted }}>/month</span>
           </div>
+          {pricing && pricing.discountPercent > 0 && (
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full mb-6" style={{ background: 'rgba(162,191,166,0.2)' }}>
+              <span className="text-xs font-bold" style={{ fontFamily: I, color: '#3a6b4a' }}>
+                {pricing.discountPercent}% OFF — {pricing.discountReason}
+              </span>
+            </div>
+          )}
 
           {/* Features */}
           <ul className="flex flex-col gap-3.5 mb-8">
@@ -149,7 +174,7 @@ export default function Upgrade() {
                 className="w-full py-3.5 rounded-2xl text-sm font-semibold text-white transition-all duration-200 hover:opacity-90 active:scale-[0.98] disabled:opacity-50"
                 style={{ fontFamily: F, background: '#1B3B2B' }}
               >
-                {initiating ? 'Opening payment…' : 'Resubscribe for ₦2,500/month →'}
+                {initiating ? 'Opening payment…' : `Resubscribe for ₦${pricing?.finalAmount.toLocaleString() ?? '2,500'}/month →`}
               </button>
             </div>
           ) : (
@@ -159,7 +184,7 @@ export default function Upgrade() {
               className="w-full py-3.5 rounded-2xl text-sm font-semibold text-white transition-all duration-200 hover:opacity-90 active:scale-[0.98] disabled:opacity-50"
               style={{ fontFamily: F, background: '#1B3B2B' }}
             >
-              {initiating ? 'Opening payment…' : 'Subscribe for ₦2,500/month →'}
+              {initiating ? 'Opening payment…' : `Subscribe for ₦${pricing?.finalAmount.toLocaleString() ?? '2,500'}/month →`}
             </button>
           )}
 

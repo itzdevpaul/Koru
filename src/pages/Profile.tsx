@@ -10,8 +10,12 @@ import {
   sendReminderEmail,
   enablePushNotifications,
   disablePushNotifications,
+  getNotifications,
+  markNotificationRead,
+  logOut,
   type UserProfile,
   type SavedQuizResult,
+  type AppNotification,
 } from '../firebase'
 import KoruLoader from '../components/KoruLoader'
 
@@ -52,6 +56,8 @@ export default function Profile() {
   const [referralRewardGranted, setReferralRewardGranted] = useState(false)
   const [inviteLoading, setInviteLoading] = useState(true)
   const [inviteMsg, setInviteMsg] = useState('')
+  const [notifications, setNotifications] = useState<AppNotification[]>([])
+  const [notifLoading, setNotifLoading] = useState(true)
 
   useEffect(() => {
     if (!user) return
@@ -162,6 +168,12 @@ export default function Profile() {
       setInviteMsg('Copy failed — please try again.')
     }
     setTimeout(() => setInviteMsg(''), 3000)
+  }
+
+  async function handleNotificationRead(n: AppNotification) {
+    if (!user || n.read) return
+    await markNotificationRead(user.uid, n.id)
+    setNotifications(prev => prev.map(item => item.id === n.id ? { ...item, read: true } : item))
   }
 
   const initials = (displayName || user?.email || '?')[0].toUpperCase()
@@ -406,10 +418,10 @@ export default function Profile() {
           <div className="flex items-start justify-between gap-4 mb-4">
             <div>
               <p className="font-semibold text-sm mb-1" style={{ fontFamily: F, color: c.forest }}>
-                Invite friends, earn 1 week Pro
+                Your permanent invite code
               </p>
               <p className="text-xs leading-relaxed" style={{ fontFamily: I, color: c.body }}>
-                Invite 10 friends who create accounts and unlock 7 days of Koru Pro.
+                Share your code — invite 10 friends who create accounts and unlock 7 days of Koru Pro. You'll be notified each time someone uses it.
               </p>
             </div>
             <span className="text-xl" aria-hidden="true">🎁</span>
@@ -455,6 +467,37 @@ export default function Profile() {
             </>
           )}
         </section>
+
+        {/* Referral alerts */}
+        {!notifLoading && notifications.length > 0 && (
+          <section className="mb-6">
+            <h2 className="text-xs font-semibold mb-3 uppercase tracking-wider" style={{ fontFamily: I, color: c.muted }}>
+              Recent alerts
+            </h2>
+            <div className="flex flex-col gap-2">
+              {notifications.slice(0, 5).map(n => (
+                <button
+                  key={n.id}
+                  onClick={() => handleNotificationRead(n)}
+                  className="flex items-start gap-3 p-4 rounded-2xl text-left transition-all duration-150 hover:opacity-90"
+                  style={{
+                    background: n.read ? c.card : c.surface,
+                    border: n.read ? `1px solid ${c.cardBorder}` : `1.5px solid ${c.forest}`,
+                  }}
+                >
+                  <span className="text-lg flex-shrink-0 mt-0.5">{n.rewardGranted ? '🎉' : '🔔'}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-sm" style={{ fontFamily: F, color: c.forest }}>{n.title}</p>
+                    <p className="text-xs mt-0.5 leading-relaxed" style={{ fontFamily: I, color: c.body }}>{n.message}</p>
+                  </div>
+                  {!n.read && (
+                    <div className="w-2 h-2 rounded-full flex-shrink-0 mt-1.5" style={{ background: '#1B3B2B' }} />
+                  )}
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
 
         {/* Appearance */}
         <section
@@ -526,6 +569,14 @@ export default function Profile() {
           style={{ fontFamily: I, color: c.muted }}
         >
           ← Back to dashboard
+        </button>
+
+        <button
+          onClick={async () => { await logOut(); navigate('/signin') }}
+          className="w-full mt-2 py-3 text-sm font-semibold transition-opacity hover:opacity-60"
+          style={{ fontFamily: I, color: '#E07A5F' }}
+        >
+          Sign out
         </button>
       </main>
     </div>

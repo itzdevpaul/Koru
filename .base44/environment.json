@@ -1,0 +1,10 @@
+{
+  "previewPort": 3000,
+  "healthPath": "/",
+  "startCommand": "docker compose -f docker-compose.base44.yml up -d",
+  "secrets": [
+    { "name": "FIREBASE_SERVICE_ACCOUNT", "description": "Firebase Admin service account JSON (or base64) for the API process", "requiredAtBoot": false },
+    { "name": "RESEND_API_KEY", "description": "Resend API key used for transactional emails", "requiredAtBoot": false },
+    { "name": "SQUAD_SECRET_KEY", "description": "Squad payments secret key for subscription endpoints", "requiredAtBoot": false }
+  ]
+}

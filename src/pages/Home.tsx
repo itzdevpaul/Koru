@@ -11,6 +11,7 @@ import PatternMirrorCard from '../components/PatternMirrorCard'
 import MoodQuizMatcher from '../components/MoodQuizMatcher'
 import FutureSelfCard from '../components/FutureSelfCard'
 import { analyzePatterns, getSeenPatternIds, markPatternsSeen } from '../utils/patternMirror'
+import KoruLogo from '../components/KoruLogo'
 
 const F = "'Plus Jakarta Sans', sans-serif"
 const I = "'Inter', sans-serif"
@@ -268,20 +269,34 @@ export default function Home() {
       {activeAd && !adDismissed && !isPro && (
         <AdModal ad={activeAd} onDismiss={handleAdDismiss} />
       )}
-      {/* Nav */}
+      {/* Nav — centered wordmark with check-in action (left) and calm utility (right) */}
       <header
-        className="sticky top-0 z-30 flex items-center justify-between px-5 sm:px-8 h-16"
+        className="sticky top-0 z-30 flex items-center justify-between px-4 sm:px-8 h-14 sm:h-16 relative"
         style={{ background: c.bgGlass, backdropFilter: 'blur(16px)', borderBottom: `1px solid ${c.navBorder}` }}
       >
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-xl flex items-center justify-center text-base" style={{ background: '#1B3B2B' }}>
-            🌿
-          </div>
-          <span className="text-base font-bold tracking-tight" style={{ fontFamily: F, color: c.forest }}>Koru</span>
-        </div>
+        {/* Left: thoughtful check-in / create action */}
+        <button
+          onClick={() => document.getElementById('daily-check-in')?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
+          className="flex items-center gap-1.5 py-1.5 px-3 rounded-2xl transition-all hover:opacity-80 active:scale-95"
+          style={{ background: c.surface }}
+          aria-label="Check in"
+        >
+          <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+            <path d="M11.5 2.5a1.5 1.5 0 0 1 0 3 1.5 1.5 0 0 1 0-3Z" stroke={c.forest} strokeWidth="1.3" />
+            <path d="M4.5 9a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Z" stroke={c.forest} strokeWidth="1.3" />
+            <path d="M5.5 9.5l4-4" stroke={c.forest} strokeWidth="1.3" strokeLinecap="round" />
+          </svg>
+          <span className="text-xs font-semibold hidden sm:block" style={{ fontFamily: F, color: c.forest }}>Check in</span>
+        </button>
 
+        {/* Center: Koru wordmark */}
+        <span className="absolute left-1/2 -translate-x-1/2 pointer-events-none">
+          <KoruLogo size={22} tone={isDark ? 'paper' : 'ink'} wordmarkSize={18} />
+        </span>
+
+        {/* Right: calmer utility */}
         <div className="flex items-center gap-2">
-          {/* Streak badge */}
+          {/* Streak badge (desktop only) */}
           {streak > 0 && (
             <div className="hidden sm:flex items-center gap-1 px-2.5 py-1 rounded-full" style={{ background: c.surface }}>
               <span style={{ fontSize: 13 }}>🔥</span>
@@ -302,7 +317,7 @@ export default function Home() {
           {/* Profile link */}
           <Link
             to="/profile"
-            className="flex items-center gap-2 py-1.5 px-3 rounded-2xl transition-opacity hover:opacity-80"
+            className="flex items-center gap-2 py-1.5 px-2.5 sm:px-3 rounded-2xl transition-opacity hover:opacity-80"
             style={{ background: c.surface, textDecoration: 'none' }}
           >
             <div
@@ -318,15 +333,6 @@ export default function Home() {
               {user?.displayName ?? user?.email}
             </span>
           </Link>
-
-          <button
-            onClick={handleSignOut}
-            disabled={signingOut}
-            className="py-1.5 px-3.5 rounded-2xl text-xs font-semibold transition-all duration-200 hover:opacity-80 active:scale-95 disabled:opacity-50"
-            style={{ fontFamily: F, background: c.surface, color: c.forest }}
-          >
-            {signingOut ? '…' : 'Sign out'}
-          </button>
         </div>
       </header>
 
@@ -456,7 +462,7 @@ export default function Home() {
 
         {/* ── Daily check-in ── */}
         {!loadingCheckIn && (
-          <section className="mb-10">
+          <section id="daily-check-in" className="mb-10">
             {todayCheckIn && !editingCheckIn ? (
               // ── Completed state ──
               <div
