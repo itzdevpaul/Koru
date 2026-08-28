@@ -1,4 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
+import { getAdminApp } from '../_lib/admin'
+import { getFirestore } from 'firebase-admin/firestore'
 
 function cors(res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', '*')
@@ -12,6 +14,33 @@ function squadBase() {
     : 'https://sandbox-api-d.squadco.com'
 }
 
+const BASE_PRICE_KOBO = 250000 // ₦2,500
+
+function calculatePrice(referredBy: boolean): {
+  amount: number
+  discountPercent: number
+  discountReason: string
+} {
+  const now = new Date()
+  // Anniversary: September 4 (month is 0-indexed, so September = 8)
+  const isAnniversary = now.getMonth() === 8 && now.getDate() === 4
+  if (isAnniversary) {
+    return {
+      amount: Math.round(BASE_PRICE_KOBO * 0.5),
+      discountPercent: 50,
+      discountReason: 'Happy Anniversary! 50% off Koru Pro',
+    }
+  }
+  if (referredBy) {
+    return {
+      amount: Math.round(BASE_PRICE_KOBO * 0.95),
+      discountPercent: 5,
+      discountReason: 'Invite code benefit — 5% off',
+    }
+  }
+  return { amount: BASE_PRICE_KOBO, discountPercent: 0, discountReason: '' }
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   cors(res)
   if (req.method === 'OPTIONS') { res.status(200).end(); return }
@@ -23,6 +52,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const key = process.env.SQUAD_SECRET_KEY
     if (!key) { res.status(500).json({ error: 'SQUAD_SECRET_KEY not configured' }); return }
+
+    // Check if user was referred for discount eligibility
+    let referredBy = false
+    try {
+      const firestore = getFirestore(getAdminApp())
+      const profileSnap = await firestore.doc(`users/${uid}/profile/main`).get()
+      referredBy = Boolean(profileSnap.exists && profileSnap.data()?.referredBy)
+    } catch { /* discount is best-effort */ }
+    const price = calculatePrice(referredBy)
 
     const ref = `koru_sub_${uid}_${Date.now()}`
 
@@ -42,7 +80,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       },
       body: JSON.stringify({
         email,
-        amount: 250000, // ₦2,500 in kobo
+        amount: price.amount,
         currency: 'NGN',
         initiate_type: 'inline',
         transaction_ref: ref,

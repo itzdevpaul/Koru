@@ -13,7 +13,7 @@ const plus = (n: number) => (n >= 0 ? '+' : '')
 
 export default function ClarityCardPage() {
   const { user } = useAuth()
-  const { c } = useTheme()
+  const { isDark, c } = useTheme()
   const navigate = useNavigate()
 
   const [metrics, setMetrics] = useState<ClarityMetrics | null>(null)

@@ -433,6 +433,65 @@ export async function activateSubscription(uid: string, squadRef: string): Promi
   if (!response.ok) throw new Error('Subscription could not be activated.')
 }
 
+// ── Pricing (discounts for referrals & anniversary) ──────────────────────────
+
+export interface Pricing {
+  baseAmount: number       // in naira
+  discountPercent: number
+  finalAmount: number      // in naira
+  discountReason: string
+}
+
+export async function getPricing(): Promise<Pricing> {
+  const response = await authenticatedApi('/subscribe/price')
+  const data = await response.json() as Partial<Pricing> & { error?: string }
+  if (!response.ok) throw new Error(data.error ?? 'Could not fetch pricing.')
+  return {
+    baseAmount: Number(data.baseAmount ?? 2500),
+    discountPercent: Number(data.discountPercent ?? 0),
+    finalAmount: Number(data.finalAmount ?? 2500),
+    discountReason: String(data.discountReason ?? ''),
+  }
+}
+
+// ── Notifications (referral alerts etc.) ─────────────────────────────────────
+
+export interface AppNotification {
+  id: string
+  type: string
+  title: string
+  message: string
+  referralCount?: number
+  rewardGranted?: boolean
+  read: boolean
+  createdAt: Timestamp | null
+}
+
+export async function getNotifications(uid: string): Promise<AppNotification[]> {
+  assertOwnUid(uid)
+  const q = query(
+    collection(db, 'users', uid, 'notifications'),
+    orderBy('createdAt', 'desc'),
+    limit(20),
+  )
+  const snap = await withTimeout(getDocs(q), 10_000)
+  return snap.docs.map(d => ({
+    id: d.id,
+    type: d.data().type ?? '',
+    title: d.data().title ?? '',
+    message: d.data().message ?? '',
+    referralCount: d.data().referralCount,
+    rewardGranted: d.data().rewardGranted,
+    read: d.data().read ?? false,
+    createdAt: d.data().createdAt ?? null,
+  }))
+}
+
+export async function markNotificationRead(uid: string, id: string): Promise<void> {
+  assertOwnUid(uid)
+  await updateDoc(doc(db, 'users', uid, 'notifications', id), { read: true })
+}
+
 // ── Check-ins ────────────────────────────────────────────────────────────────
 
 export type MoodKey = 'thriving' | 'good' | 'okay' | 'low' | 'rough'
