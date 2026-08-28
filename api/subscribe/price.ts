@@ -4,8 +4,10 @@ import { getAuth } from 'firebase-admin/auth'
 import { getFirestore } from 'firebase-admin/firestore'
 
 const BASE_PRICE_KOBO = 250000 // ₦2,500
+const UNLOCK_PRICE_KOBO = 100000 // ₦1,000 one-time report unlock
+const INTRO_PRICE_KOBO = 100000 // ₦1,000 first-month intro
 
-function calculatePrice(referredBy: boolean): {
+function calculatePrice(referredBy: boolean, isFirstTime = false): {
   amount: number
   discountPercent: number
   discountReason: string
@@ -17,6 +19,13 @@ function calculatePrice(referredBy: boolean): {
       amount: Math.round(BASE_PRICE_KOBO * 0.5),
       discountPercent: 50,
       discountReason: 'Happy Anniversary! 50% off Koru Pro',
+    }
+  }
+  if (isFirstTime) {
+    return {
+      amount: INTRO_PRICE_KOBO,
+      discountPercent: 60,
+      discountReason: 'First month intro offer — 60% off',
     }
   }
   if (referredBy) {

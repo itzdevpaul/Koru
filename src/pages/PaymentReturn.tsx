@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { activateSubscription } from '../firebase'
+import { useSubscription } from '../context/SubscriptionContext'
+import { activateSubscription, activateReportUnlock } from '../firebase'
 import KoruLoader from '../components/KoruLoader'
 
 const F = "'Plus Jakarta Sans', sans-serif"
@@ -9,6 +10,7 @@ const I = "'Inter', sans-serif"
 
 export default function PaymentReturn() {
   const { user } = useAuth()
+  const { refresh } = useSubscription()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const [status, setStatus] = useState<'verifying' | 'success' | 'error'>('verifying')
@@ -16,14 +18,14 @@ export default function PaymentReturn() {
 
   useEffect(() => {
     async function verify() {
-      // Squad redirects back with transaction_ref or squadRef in the URL.
-      // Fall back to sessionStorage in case URL params differ.
       const ref =
         searchParams.get('transaction_ref') ??
         searchParams.get('squadRef') ??
         sessionStorage.getItem('koru-payment-ref')
 
       const uid = user?.uid
+      const paymentType = sessionStorage.getItem('koru-payment-type')
+      const unlockQuiz = sessionStorage.getItem('koru-unlock-quiz')
 
       if (!ref || !uid) {
         setStatus('error')
@@ -32,25 +34,55 @@ export default function PaymentReturn() {
       }
 
       try {
-        const res = await fetch('/api/subscribe/verify', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${await user!.getIdToken()}`,
-          },
-          body: JSON.stringify({ ref }),
-        })
-        const data = await res.json()
+        if (paymentType === 'unlock') {
+          // One-time report unlock flow
+          const res = await fetch('/api/unlock/activate', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${await user!.getIdToken()}`,
+            },
+            body: JSON.stringify({ ref }),
+          })
+          const data = await res.json()
 
-        if (data.verified) {
-          await activateSubscription(uid, ref)
-          sessionStorage.removeItem('koru-payment-ref')
-          sessionStorage.removeItem('koru-payment-uid')
-          setStatus('success')
-          setTimeout(() => navigate('/home'), 2500)
+          if (data.ok) {
+            sessionStorage.removeItem('koru-payment-ref')
+            sessionStorage.removeItem('koru-payment-uid')
+            sessionStorage.removeItem('koru-payment-type')
+            sessionStorage.removeItem('koru-unlock-quiz')
+            await refresh()
+            setStatus('success')
+            setTimeout(() => navigate(unlockQuiz ? `/quiz/${unlockQuiz}` : '/home'), 2500)
+          } else {
+            setStatus('error')
+            setMessage(data.error ?? 'Payment could not be verified. If you were charged, contact hello@koru.com.ng.')
+          }
         } else {
-          setStatus('error')
-          setMessage('Payment could not be verified. If you were charged, contact hello@koru.com.ng.')
+          // Subscription flow (existing)
+          const res = await fetch('/api/subscribe/verify', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${await user!.getIdToken()}`,
+            },
+            body: JSON.stringify({ ref }),
+          })
+          const data = await res.json()
+
+          if (data.verified) {
+            await activateSubscription(uid, ref)
+            sessionStorage.removeItem('koru-payment-ref')
+            sessionStorage.removeItem('koru-payment-uid')
+            sessionStorage.removeItem('koru-payment-type')
+            sessionStorage.removeItem('koru-unlock-quiz')
+            await refresh()
+            setStatus('success')
+            setTimeout(() => navigate('/home'), 2500)
+          } else {
+            setStatus('error')
+            setMessage('Payment could not be verified. If you were charged, contact hello@koru.com.ng.')
+          }
         }
       } catch {
         setStatus('error')
@@ -75,7 +107,7 @@ export default function PaymentReturn() {
       <div className="min-h-screen flex flex-col items-center justify-center gap-4" style={{ background: '#FBF9F5' }}>
         <div className="w-16 h-16 rounded-3xl flex items-center justify-center text-3xl" style={{ background: 'rgba(162,191,166,0.25)' }}>✅</div>
         <h1 className="text-2xl font-bold" style={{ fontFamily: F, color: '#1B3B2B' }}>You're all set!</h1>
-        <p className="text-sm" style={{ fontFamily: I, color: '#7a9a86' }}>Redirecting you to the dashboard…</p>
+        <p className="text-sm" style={{ fontFamily: I, color: '#7a9a86' }}>Redirecting you…</p>
       </div>
     )
   }

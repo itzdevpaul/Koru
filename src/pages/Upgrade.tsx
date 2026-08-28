@@ -193,6 +193,21 @@ export default function Upgrade() {
           )}
         </div>
 
+        {/* One-time unlock alternative */}
+        <div
+          className="rounded-2xl p-5 mb-6 text-center"
+          style={{ background: c.surface, border: `1.5px solid ${c.cardBorder}` }}
+        >
+          <p className="text-sm font-semibold mb-1" style={{ fontFamily: F, color: c.forest }}>
+            Just want one report?
+          </p>
+          <p className="text-xs leading-relaxed" style={{ fontFamily: I, color: c.body }}>
+            Unlock a single deep-dive report for{' '}
+            <strong style={{ color: c.forest }}>₦{pricing?.unlockAmount.toLocaleString() ?? '1,000'}</strong> — yours forever, no subscription.
+            Available directly on each quiz result page.
+          </p>
+        </div>
+
         {/* Fine print */}
         <p className="text-center text-xs" style={{ fontFamily: I, color: c.muted, lineHeight: 1.7 }}>
           Billed monthly. Cancel any time by contacting{' '}

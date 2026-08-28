@@ -43,8 +43,10 @@ function safeInviteCode(value: unknown): string {
 }
 
 const BASE_PRICE_KOBO = 250000 // ₦2,500
+const UNLOCK_PRICE_KOBO = 100000 // ₦1,000 one-time report unlock
+const INTRO_PRICE_KOBO = 100000 // ₦1,000 first-month intro
 
-function calculatePrice(referredBy: boolean): {
+function calculatePrice(referredBy: boolean, isFirstTime = false): {
   amount: number
   discountPercent: number
   discountReason: string
@@ -57,6 +59,13 @@ function calculatePrice(referredBy: boolean): {
       amount: Math.round(BASE_PRICE_KOBO * 0.5),
       discountPercent: 50,
       discountReason: 'Happy Anniversary! 50% off Koru Pro',
+    }
+  }
+  if (isFirstTime) {
+    return {
+      amount: INTRO_PRICE_KOBO,
+      discountPercent: 60,
+      discountReason: 'First month intro offer — 60% off',
     }
   }
   if (referredBy) {
@@ -192,6 +201,30 @@ function squadBase() {
     : 'https://sandbox-api-d.squadco.com'
 }
 
+app.post('/api/subscribe/price', async (req, res) => {
+  try {
+    const decoded = await getAuthenticatedUser(req)
+    const firestore = getFirestore(getAdminApp())
+    const [profileSnap, subSnap] = await Promise.all([
+      firestore.doc(`users/${decoded.uid}/profile/main`).get(),
+      firestore.doc(`users/${decoded.uid}/subscription/main`).get(),
+    ])
+    const referredBy = Boolean(profileSnap.exists && profileSnap.data()?.referredBy)
+    const isFirstTime = !subSnap.exists
+    const price = calculatePrice(referredBy, isFirstTime)
+    res.json({
+      baseAmount: BASE_PRICE_KOBO / 100,
+      discountPercent: price.discountPercent,
+      finalAmount: price.amount / 100,
+      discountReason: price.discountReason,
+      unlockAmount: UNLOCK_PRICE_KOBO / 100,
+    })
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Unknown error'
+    res.status(msg === 'Authentication required' ? 401 : 500).json({ error: msg })
+  }
+})
+
 app.post('/api/subscribe/initiate', async (req, res) => {
   try {
     const decoded = await getAuthenticatedUser(req)
@@ -201,10 +234,15 @@ app.post('/api/subscribe/initiate', async (req, res) => {
     const key = process.env.SQUAD_SECRET_KEY
     if (!key) { res.status(500).json({ error: 'SQUAD_SECRET_KEY not configured' }); return }
 
-    // Check if user was referred for discount eligibility
-    const profileSnap = await getFirestore(getAdminApp()).doc(`users/${decoded.uid}/profile/main`).get()
+    // Check if user was referred and if this is their first subscription
+    const firestore = getFirestore(getAdminApp())
+    const [profileSnap, subSnap] = await Promise.all([
+      firestore.doc(`users/${decoded.uid}/profile/main`).get(),
+      firestore.doc(`users/${decoded.uid}/subscription/main`).get(),
+    ])
     const referredBy = Boolean(profileSnap.exists && profileSnap.data()?.referredBy)
-    const price = calculatePrice(referredBy)
+    const isFirstTime = !subSnap.exists
+    const price = calculatePrice(referredBy, isFirstTime)
 
     const ref = `koru_sub_${uid}_${Date.now()}`
 
@@ -315,6 +353,103 @@ app.post('/api/subscribe/activate', async (req, res) => {
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unknown error'
     console.error('[Koru] /api/subscribe/activate error:', msg)
+    res.status(msg === 'Authentication required' ? 401 : 500).json({ error: msg })
+  }
+})
+
+// ── One-time report unlock ─────────────────────────────────────────────────────
+
+app.post('/api/unlock/initiate', async (req, res) => {
+  try {
+    const decoded = await getAuthenticatedUser(req)
+    const { quizId } = req.body as { quizId: string }
+    if (!quizId || !decoded.email) { res.status(400).json({ error: 'quizId is required' }); return }
+
+    const key = process.env.SQUAD_SECRET_KEY
+    if (!key) { res.status(500).json({ error: 'SQUAD_SECRET_KEY not configured' }); return }
+
+    const ref = `koru_unlock_${decoded.uid}_${quizId}_${Date.now()}`
+    const safeOrigin = process.env.APP_URL ?? 'https://koru.com.ng'
+    const callbackUrl = `${safeOrigin}/payment/return`
+
+    const squadRes = await fetch(`${squadBase()}/transaction/initiate`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${key}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        email: decoded.email,
+        amount: UNLOCK_PRICE_KOBO,
+        currency: 'NGN',
+        initiate_type: 'inline',
+        transaction_ref: ref,
+        callback_url: callbackUrl,
+        pass_charge: false,
+      }),
+    })
+
+    const data = await squadRes.json()
+    const isProd = process.env.SQUAD_ENV === 'prod'
+    const checkoutUrl: string =
+      data?.data?.checkout_url ??
+      (isProd ? `https://pay.squadco.com/${ref}` : `https://sandbox-pay.squadco.com/${ref}`)
+
+    const ok = data?.success === true || data?.status === 200
+    if (!ok) {
+      console.error('[Koru] Squad unlock initiate failed:', JSON.stringify(data))
+      res.status(502).json({ error: data?.message ?? 'Could not create payment session' })
+      return
+    }
+
+    res.json({ checkout_url: checkoutUrl, ref })
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Unknown error'
+    console.error('[Koru] /api/unlock/initiate error:', msg)
+    res.status(500).json({ error: msg })
+  }
+})
+
+app.post('/api/unlock/activate', async (req, res) => {
+  try {
+    const decoded = await getAuthenticatedUser(req)
+    const { ref } = req.body as { ref: string }
+    if (!ref || !ref.startsWith(`koru_unlock_${decoded.uid}_`)) {
+      res.status(403).json({ error: 'Payment ownership could not be verified' }); return
+    }
+
+    const key = process.env.SQUAD_SECRET_KEY
+    if (!key) { res.status(500).json({ error: 'SQUAD_SECRET_KEY not configured' }); return }
+
+    const response = await fetch(`${squadBase()}/transaction/verify/${encodeURIComponent(ref)}`, {
+      headers: { Authorization: `Bearer ${key}` },
+    })
+    const data = await response.json()
+    const verified =
+      data?.status === 200 &&
+      (data?.data?.transaction_status === 'Success' || data?.data?.transaction_status === 'success')
+    if (!verified) { res.status(402).json({ error: 'Payment could not be verified' }); return }
+
+    // Extract quizId from the ref: koru_unlock_{uid}_{quizId}_{timestamp}
+    const refParts = ref.split('_')
+    const timestamp = refParts[refParts.length - 1]
+    const uidPart = refParts.slice(2, -2).join('_') // uid may contain underscores
+    // Actually the format is koru_unlock_{uid}_{quizId}_{timestamp}
+    // quizId is between uid and timestamp. But uid and quizId can both contain hyphens.
+    // Let's use a simpler approach: everything between "koru_unlock_{uid}_" and "_{timestamp}"
+    const afterUid = ref.slice(`koru_unlock_${decoded.uid}_`.length)
+    const quizId = afterUid.slice(0, afterUid.lastIndexOf('_'))
+
+    const firestore = getFirestore(getAdminApp())
+    await firestore.doc(`users/${decoded.uid}/unlocks/${quizId}`).set({
+      active: true,
+      squadRef: ref,
+      activatedAt: new Date(),
+    })
+    res.json({ ok: true, quizId })
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Unknown error'
+    console.error('[Koru] /api/unlock/activate error:', msg)
     res.status(msg === 'Authentication required' ? 401 : 500).json({ error: msg })
   }
 })
