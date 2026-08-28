@@ -1,9 +1,10 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
-  <rect width="32" height="32" rx="7" fill="#1B3B2B"/>
-  <!-- Leaf body -->
-  <path d="M22 10 C22 10 17 9 13 13 C9 17 9 23 9 23 C9 23 15 23 19 19 C23 15 22 10 22 10 Z" fill="#A2BFA6"/>
-  <!-- Stem -->
-  <path d="M9 23 C9 23 12 19.5 15.5 16" stroke="#FBF9F5" stroke-width="1.6" stroke-linecap="round" fill="none"/>
-  <!-- Highlight on leaf -->
-  <path d="M19 12 C19 12 16 12 14 15" stroke="rgba(251,249,245,0.35)" stroke-width="1.2" stroke-linecap="round" fill="none"/>
+<svg width="64" height="64" viewBox="0 0 160 160" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <title>Koru Pathfinder K favicon</title>
+  <desc>Compact Pathfinder K favicon.</desc>
+  <rect width="160" height="160" rx="30" fill="#27342F"/>
+  <path d="M50 30V130" stroke="#F4F0E7" stroke-width="14" stroke-linecap="square"/>
+  <path d="M50 80C63 80 70 71 76 55C82 40 91 31 103 31C113 31 119 37 118 46C117 56 108 61 96 67L81 74C70 79 69 90 74 100C80 111 91 116 103 111C112 107 117 99 118 91" stroke="#F4F0E7" stroke-width="14" stroke-linecap="square" stroke-linejoin="round"/>
+  <path d="M50 80L105 128" stroke="#F4F0E7" stroke-width="14" stroke-linecap="square"/>
+  <path d="M50 80L80 52" stroke="#DD684F" stroke-width="4" stroke-linecap="square"/>
+  <circle cx="50" cy="80" r="4.5" fill="#DD684F"/>
 </svg>

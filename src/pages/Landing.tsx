@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import KoruLogo from '../components/KoruLogo'
 
 /* ─────────────────────────────────────────
    Landing Page
@@ -40,20 +41,8 @@ export default function Landing() {
           aria-label="Main navigation"
           className="relative z-10 flex items-center justify-between px-4 sm:px-6 py-4 sm:py-5 max-w-6xl mx-auto"
         >
-          <Link to="/" aria-label="Koru home" className="flex items-center gap-2.5 no-underline">
-            <div
-              className="w-9 h-9 rounded-xl flex items-center justify-center text-lg shadow-sm flex-shrink-0"
-              style={{ background: 'linear-gradient(135deg, #1B3B2B 0%, #2a5240 100%)' }}
-              aria-hidden="true"
-            >
-              🌿
-            </div>
-            <span
-              className="text-xl font-bold tracking-tight"
-              style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", color: '#1B3B2B' }}
-            >
-              Koru
-            </span>
+          <Link to="/" aria-label="Koru home" className="no-underline">
+            <KoruLogo size={34} />
           </Link>
 
           <div className="flex items-center gap-3">
@@ -381,20 +370,8 @@ export default function Landing() {
         style={{ borderTop: '1px solid rgba(162, 191, 166, 0.3)' }}
       >
         <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 sm:gap-0">
-          <Link to="/" aria-label="Koru home" className="flex items-center gap-2 no-underline">
-            <div
-              className="w-7 h-7 rounded-lg flex items-center justify-center text-sm flex-shrink-0"
-              style={{ background: '#1B3B2B' }}
-              aria-hidden="true"
-            >
-              🌿
-            </div>
-            <span
-              className="text-base font-bold"
-              style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", color: '#1B3B2B' }}
-            >
-              Koru
-            </span>
+          <Link to="/" aria-label="Koru home" className="no-underline">
+            <KoruLogo size={24} wordmarkSize={17} />
           </Link>
 
           <p

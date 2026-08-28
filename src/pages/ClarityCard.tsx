@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
 import { getClarityMetrics, markClarityCardSeen, type ClarityMetrics } from '../firebase'
 import { generateClarityDeltaImage, shareOrDownloadImage } from '../utils/shareImage'
+import KoruLogo from '../components/KoruLogo'
 
 const F = "'Plus Jakarta Sans', sans-serif"
 const I = "'Inter', sans-serif"
@@ -143,8 +144,7 @@ export default function ClarityCardPage() {
           Back
         </button>
         <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-xl flex items-center justify-center text-sm" style={{ background: '#1B3B2B' }}>🌿</div>
-          <span className="text-sm font-bold" style={{ fontFamily: F, color: c.forest }}>Koru</span>
+          <KoruLogo size={22} tone={isDark ? 'paper' : 'ink'} wordmarkSize={15} />
         </div>
       </header>
 

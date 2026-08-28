@@ -10,6 +10,7 @@ import {
   sendReminderEmail,
   enablePushNotifications,
   disablePushNotifications,
+  logOut,
   type UserProfile,
   type SavedQuizResult,
 } from '../firebase'
@@ -526,6 +527,14 @@ export default function Profile() {
           style={{ fontFamily: I, color: c.muted }}
         >
           ← Back to dashboard
+        </button>
+
+        <button
+          onClick={async () => { await logOut(); navigate('/signin') }}
+          className="w-full mt-2 py-3 text-sm font-semibold transition-opacity hover:opacity-60"
+          style={{ fontFamily: I, color: '#E07A5F' }}
+        >
+          Sign out
         </button>
       </main>
     </div>
