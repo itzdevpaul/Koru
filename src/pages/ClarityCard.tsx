@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
+import { useSubscription } from '../context/SubscriptionContext'
 import { getClarityMetrics, markClarityCardSeen, type ClarityMetrics } from '../firebase'
 import { generateClarityDeltaImage, shareOrDownloadImage } from '../utils/shareImage'
 import KoruLogo from '../components/KoruLogo'
@@ -14,6 +15,7 @@ const plus = (n: number) => (n >= 0 ? '+' : '')
 export default function ClarityCardPage() {
   const { user } = useAuth()
   const { isDark, c } = useTheme()
+  const { isPro, loading: subLoading } = useSubscription()
   const navigate = useNavigate()
 
   const [metrics, setMetrics] = useState<ClarityMetrics | null>(null)

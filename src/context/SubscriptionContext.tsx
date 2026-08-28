@@ -1,13 +1,15 @@
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react'
 import { useAuth } from './AuthContext'
-import { getSubscription } from '../firebase'
+import { getSubscription, getUnlockedReports } from '../firebase'
 
 interface SubCtx {
   isPro: boolean
   isExpired: boolean          // was subscribed but now past expiresAt
   expiresAt: Date | null      // when the active sub expires (or expired)
   daysLeft: number | null     // days remaining for active Pro (null if free/expired)
+  unlockedQuizIds: string[]   // one-time report unlocks
   loading: boolean
+  hasReportAccess: (quizId: string) => boolean
   refresh: () => Promise<void>
 }
 
@@ -16,7 +18,9 @@ const SubscriptionContext = createContext<SubCtx>({
   isExpired: false,
   expiresAt: null,
   daysLeft: null,
+  unlockedQuizIds: [],
   loading: true,
+  hasReportAccess: () => false,
   refresh: async () => {},
 })
 
@@ -76,7 +80,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
   useEffect(() => { refresh() }, [refresh])
 
   return (
-    <SubscriptionContext.Provider value={{ isPro, isExpired, expiresAt, daysLeft, loading, refresh }}>
+    <SubscriptionContext.Provider value={{ isPro, isExpired, expiresAt, daysLeft, unlockedQuizIds, loading, hasReportAccess, refresh }}>
       {children}
     </SubscriptionContext.Provider>
   )
