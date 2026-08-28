@@ -264,6 +264,13 @@ export default function Home() {
   const allPatternObs = analyzePatterns(patternCheckIns)
   const patternObservations = allPatternObs.filter(o => !getSeenPatternIds().includes(o.id))
 
+  // ── Streak upgrade prompt: triggers at 3-day streak for free users (after sub state loads) ──
+  useEffect(() => {
+    if (streak >= 3 && !isPro && !subLoading && !sessionStorage.getItem('koru-streak-prompt-seen')) {
+      setShowStreakPrompt(true)
+    }
+  }, [streak, isPro, subLoading])
+
   return (
     <div className="min-h-screen" style={{ background: c.bg, transition: 'background 0.25s' }}>
       {/* Ad modal — free users only, once per session */}

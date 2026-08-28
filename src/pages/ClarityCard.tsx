@@ -62,11 +62,50 @@ export default function ClarityCardPage() {
   }
 
   // ── Loading ──
-  if (loading) {
+  if (loading || subLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: c.bg }}>
         <div className="w-10 h-10 rounded-full border-2 animate-spin"
           style={{ borderColor: 'rgba(162,191,166,0.3)', borderTopColor: '#1B3B2B' }} />
+      </div>
+    )
+  }
+
+  // ── Pro gate: Clarity Delta is a Pro feature ──
+  if (!isPro) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center px-5" style={{ background: c.bg }}>
+        <div
+          className="w-full max-w-sm rounded-3xl p-8 text-center"
+          style={{ background: c.card, border: `1.5px solid ${c.cardBorder}`, boxShadow: '0 8px 40px rgba(27,59,43,0.1)' }}
+        >
+          <div className="w-16 h-16 rounded-3xl flex items-center justify-center text-3xl mx-auto mb-5" style={{ background: 'rgba(162,191,166,0.2)' }}>
+            📊
+          </div>
+          <h2 className="text-xl font-bold mb-2" style={{ fontFamily: F, color: c.forest }}>
+            30-Day Clarity Delta
+          </h2>
+          <p className="text-sm mb-2" style={{ fontFamily: I, color: c.body, lineHeight: 1.65 }}>
+            See how your mood, energy, and perspective have shifted over the month — full trend analytics that reveal your growth.
+          </p>
+          <p className="text-sm mb-7" style={{ fontFamily: I, color: c.muted, lineHeight: 1.65 }}>
+            This is a Koru Pro feature. Upgrade to unlock your complete Clarity Delta.
+          </p>
+          <Link
+            to="/upgrade"
+            className="block w-full py-3.5 rounded-2xl text-sm font-semibold text-white text-center mb-3 transition-opacity hover:opacity-90"
+            style={{ fontFamily: F, background: '#1B3B2B' }}
+          >
+            Upgrade to Pro →
+          </Link>
+          <button
+            onClick={() => navigate('/home')}
+            className="text-sm transition-opacity hover:opacity-60"
+            style={{ fontFamily: I, color: c.muted }}
+          >
+            ← Back to home
+          </button>
+        </div>
       </div>
     )
   }
