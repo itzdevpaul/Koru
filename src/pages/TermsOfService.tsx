@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { Link } from 'react-router-dom'
+import KoruLogo from '../components/KoruLogo'
 
 export default function TermsOfService() {
   useEffect(() => {
