@@ -20,6 +20,7 @@ import PrivacyPolicy from './pages/PrivacyPolicy'
 import TermsOfService from './pages/TermsOfService'
 import Admin from './pages/Admin'
 import ClarityCard from './pages/ClarityCard'
+import IdleTimer from './components/IdleTimer'
 import './index.css'
 
 if ('serviceWorker' in navigator && import.meta.env.PROD) {
@@ -36,6 +37,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
       <AuthProvider>
         <BrowserRouter>
           <SubscriptionProvider>
+          <IdleTimer />
           <SupportButton />
           <Routes>
             {/* Public routes */}

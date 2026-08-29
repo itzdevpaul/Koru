@@ -37,6 +37,7 @@ import {
   isSupported as isMessagingSupported,
 } from 'firebase/messaging'
 import { sanitizeDisplayName, sanitizeEmail, sanitizeHttpUrl, sanitizeInviteCode, sanitizeText } from './utils/sanitize'
+import { encryptText, decryptText, isEncrypted, type EncryptedPayload } from './utils/crypto'
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY as string,
@@ -181,7 +182,14 @@ export async function getUserProfile(uid: string): Promise<UserProfile | null> {
   assertOwnUid(uid)
   const snap = await getDoc(doc(db, 'users', uid, 'profile', 'main'))
   if (!snap.exists()) return null
-  return snap.data() as UserProfile
+  const data = snap.data() as Record<string, unknown>
+  const profile = { ...data } as UserProfile
+  // Decrypt the intention if encrypted version exists
+  if (isEncrypted(data.currentIntentionEnc)) {
+    const decrypted = await decryptText(data.currentIntentionEnc as EncryptedPayload, uid)
+    if (decrypted !== null) profile.currentIntention = decrypted
+  }
+  return profile
 }
 
 function sanitizeProfile(data: Partial<UserProfile>): Partial<UserProfile> {
@@ -395,6 +403,18 @@ export async function sendReminderEmail(to: string, name: string, resultTitle?: 
   }
 }
 
+export async function sendWeeklyWrapUp(to: string, name: string): Promise<boolean> {
+  try {
+    const res = await authenticatedApi('/send-weekly-wrapup', {
+      to: sanitizeEmail(to),
+      name: sanitizeDisplayName(name),
+    })
+    return res.ok
+  } catch {
+    return false
+  }
+}
+
 export async function sendWelcomeEmail(to: string, name: string): Promise<void> {
   try {
     await authenticatedApi('/send-welcome', {
@@ -559,10 +579,17 @@ export async function saveCheckIn(
   data: Pick<CheckIn, 'mood' | 'energy' | 'reflection' | 'prompt'>,
 ): Promise<void> {
   assertOwnUid(uid)
-  const safeData = {
-    ...data,
-    reflection: sanitizeText(data.reflection, 1000),
+  const reflectionText = sanitizeText(data.reflection, 1000)
+  // Encrypt the reflection for at-rest protection (data decoupling + encryption)
+  const reflectionEnc = reflectionText ? await encryptText(reflectionText, uid) : null
+  const safeData: Record<string, unknown> = {
+    mood: data.mood,
+    energy: data.energy,
     prompt: sanitizeText(data.prompt, 300),
+    reflection: '', // plaintext cleared — encrypted version stored separately
+  }
+  if (reflectionEnc) {
+    safeData.reflectionEnc = reflectionEnc
   }
   const dateKey = todayISO()
   const ref = doc(db, 'users', uid, 'checkins', dateKey)
@@ -574,11 +601,28 @@ export async function saveCheckIn(
   }
 }
 
+async function decryptCheckIn(raw: Record<string, unknown>, uid: string): Promise<CheckIn> {
+  let reflection = String(raw.reflection ?? '')
+  // If encrypted reflection exists, decrypt it (takes precedence over plaintext fallback)
+  if (isEncrypted(raw.reflectionEnc)) {
+    const decrypted = await decryptText(raw.reflectionEnc as EncryptedPayload, uid)
+    if (decrypted !== null) reflection = decrypted
+  }
+  return {
+    mood: raw.mood as MoodKey,
+    energy: Number(raw.energy ?? 0),
+    reflection,
+    prompt: String(raw.prompt ?? ''),
+    createdAt: (raw.createdAt as Timestamp | null) ?? null,
+    updatedAt: (raw.updatedAt as Timestamp | null) ?? null,
+  }
+}
+
 export async function getTodayCheckIn(uid: string): Promise<CheckIn | null> {
   assertOwnUid(uid)
   const snap = await getDoc(doc(db, 'users', uid, 'checkins', todayISO()))
   if (!snap.exists()) return null
-  return snap.data() as CheckIn
+  return decryptCheckIn(snap.data() as Record<string, unknown>, uid)
 }
 
 // ── Future self intentions ───────────────────────────────────────────────────
@@ -586,12 +630,19 @@ export async function getTodayCheckIn(uid: string): Promise<CheckIn | null> {
 export async function saveIntention(uid: string, text: string): Promise<void> {
   assertOwnUid(uid)
   const today = todayISO()
-  await updateDoc(doc(db, 'users', uid, 'profile', 'main'), {
-    currentIntention: sanitizeText(text, 500),
+  const intentionText = sanitizeText(text, 500)
+  // Encrypt the intention for at-rest protection (data decoupling)
+  const encrypted = intentionText ? await encryptText(intentionText, uid) : null
+  const update: Record<string, unknown> = {
+    currentIntention: '', // plaintext cleared
     intentionSetAt: today,
     intentionSurfacedAt: deleteField(),
     updatedAt: serverTimestamp(),
-  })
+  }
+  if (encrypted) {
+    update.currentIntentionEnc = encrypted
+  }
+  await updateDoc(doc(db, 'users', uid, 'profile', 'main'), update)
 }
 
 export async function markIntentionSurfaced(uid: string): Promise<void> {
@@ -620,7 +671,12 @@ export async function getRecentCheckIns(
     ),
     8_000,
   )
-  return snap.docs.map(d => ({ date: d.id, ...(d.data() as CheckIn) }))
+  const results: Array<CheckIn & { date: string }> = []
+  for (const d of snap.docs) {
+    const decrypted = await decryptCheckIn(d.data() as Record<string, unknown>, uid)
+    results.push({ date: d.id, ...decrypted })
+  }
+  return results
 }
 
 // ── Clarity Card (month-end transformation) ──────────────────────────────────

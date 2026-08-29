@@ -3,7 +3,7 @@ import crypto from 'node:crypto'
 import { Resend } from 'resend'
 import { initializeApp, cert, getApps, type App } from 'firebase-admin/app'
 import { getAuth } from 'firebase-admin/auth'
-import { FieldValue, Timestamp, getFirestore } from 'firebase-admin/firestore'
+import { FieldValue, Timestamp, getFirestore, FieldPath } from 'firebase-admin/firestore'
 import { getMessaging } from 'firebase-admin/messaging'
 
 // ── Firebase Admin init (lazy, only if credentials are present) ───────────────
@@ -84,8 +84,8 @@ async function notifyInviter(inviterUid: string, referralCount: number, rewardGr
 
     // Create a notification document for the inviter
     const message = rewardGranted
-      ? "Your invite code was used! You've reached 10 referrals — 7 days of Pro unlocked! 🎉"
-      : `Your invite code was used! ${referralCount} of 10 referrals — keep inviting to unlock Pro.`
+      ? "Your invite code was used! You've reached 100 referrals — 7 days of Pro unlocked! 🎉"
+      : `Your invite code was used! ${referralCount} of 100 referrals — keep inviting to unlock Pro.`
     await firestore.collection(`users/${inviterUid}/notifications`).add({
       type: 'referral',
       title: 'Your invite code was used! 🎉',
@@ -107,8 +107,8 @@ async function notifyInviter(inviterUid: string, referralCount: number, rewardGr
           notification: {
             title: 'Your invite code was used! 🎉',
             body: rewardGranted
-              ? '10 referrals reached — 7 days of Pro unlocked!'
-              : `${referralCount} of 10 invites — keep going!`,
+              ? '100 referrals reached — 7 days of Pro unlocked!'
+              : `${referralCount} of 100 invites — keep going!`,
           },
           data: { url: '/profile' },
         })
@@ -189,6 +189,67 @@ app.post('/api/send-welcome', async (req, res) => {
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unknown error'
     console.error('[Koru] /api/send-welcome error:', msg)
+    res.status(500).json({ error: msg })
+  }
+})
+
+// ── Weekly wrap-up email ──────────────────────────────────────────────────────
+app.post('/api/send-weekly-wrapup', async (req, res) => {
+  try {
+    const decoded = await getAuthenticatedUser(req)
+    const { to, name } = req.body as { to: string; name: string }
+    if (!to || !name || to.toLowerCase() !== decoded.email?.toLowerCase()) {
+      res.status(403).json({ error: 'Email ownership could not be verified' }); return
+    }
+
+    const firestore = getFirestore(getAdminApp())
+    const uid = decoded.uid
+
+    // Fetch this week's check-ins (last 7 days)
+    const sevenDaysAgo = new Date()
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
+    const startDate = sevenDaysAgo.toISOString().split('T')[0]
+    const endDate = new Date().toISOString().split('T')[0]
+
+    const checkInSnap = await firestore
+      .collection(`users/${uid}/checkins`)
+      .where(FieldPath.documentId(), '>=', startDate)
+      .where(FieldPath.documentId(), '<=', endDate)
+      .get()
+
+    const checkIns = checkInSnap.docs.map(d => d.data() as { mood?: string; energy?: number })
+    const checkInCount = checkIns.length
+
+    // Compute averages
+    const moodScores: Record<string, number> = { rough: 1, low: 2, okay: 3, good: 4, thriving: 5 }
+    const avgMood = checkInCount > 0
+      ? checkIns.reduce((s, c) => s + (moodScores[c.mood ?? 'okay'] ?? 3), 0) / checkInCount
+      : 0
+    const avgEnergy = checkInCount > 0
+      ? checkIns.reduce((s, c) => s + (c.energy ?? 0), 0) / checkInCount
+      : 0
+
+    // Get streak from profile
+    const profileSnap = await firestore.doc(`users/${uid}/profile/main`).get()
+    const streak = Number(profileSnap.data()?.streak ?? 0)
+
+    const resend = getResend()
+    await resend.emails.send({
+      from: 'Koru <hello@koru.com.ng>',
+      to,
+      subject: '📊 Your Koru weekly wrap-up',
+      html: buildWeeklyWrapUpEmail(name, {
+        checkInCount,
+        streak,
+        avgMood: Math.round(avgMood * 10) / 10,
+        avgEnergy: Math.round(avgEnergy * 10) / 10,
+      }),
+    })
+
+    res.json({ ok: true })
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Unknown error'
+    console.error('[Koru] /api/send-weekly-wrapup error:', msg)
     res.status(500).json({ error: msg })
   }
 })
@@ -708,6 +769,76 @@ app.post('/api/admin/revoke-pro', async (req, res) => {
   }
 })
 
+// ── Admin: backfill invite codes for all existing users ───────────────────────
+app.post('/api/admin/backfill-codes', async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization
+    if (!authHeader?.startsWith('Bearer ')) { res.status(401).json({ error: 'Unauthorized' }); return }
+    const decoded = await getAuth(getAdminApp()).verifyIdToken(authHeader.slice(7))
+    if (decoded.email !== ADMIN_EMAIL) { res.status(403).json({ error: 'Forbidden' }); return }
+
+    const adminAuth = getAuth(getAdminApp())
+    const firestore = getFirestore(getAdminApp())
+
+    let pageToken: string | undefined
+    let created = 0
+    let skipped = 0
+    do {
+      const result = await adminAuth.listUsers(1000, pageToken)
+      for (const u of result.users) {
+        const profileRef = firestore.doc(`users/${u.uid}/profile/main`)
+        const profileSnap = await profileRef.get()
+        const profile = profileSnap.data() ?? {}
+        if (typeof profile.inviteCode === 'string' && profile.inviteCode) {
+          skipped += 1
+          continue
+        }
+        // Generate a unique code
+        for (let attempt = 0; attempt < 8; attempt += 1) {
+          const candidate = inviteCode()
+          const codeRef = firestore.doc(`inviteCodes/${candidate}`)
+          const codeSnap = await codeRef.get()
+          if (codeSnap.exists) continue
+          await codeRef.set({ uid: u.uid, createdAt: new Date() })
+          await profileRef.set({
+            inviteCode: candidate,
+            referralCount: 0,
+            referralRewardGranted: false,
+            updatedAt: new Date(),
+          }, { merge: true })
+          created += 1
+          break
+        }
+      }
+      pageToken = result.pageToken
+    } while (pageToken)
+
+    res.json({ ok: true, created, skipped })
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Unknown error'
+    console.error('[Koru] /api/admin/backfill-codes error:', msg)
+    res.status(500).json({ error: msg })
+  }
+})
+
+// ── Funnel event (sendBeacon endpoint) ───────────────────────────────────────
+app.post('/api/funnel-event', express.json(), (req, res) => {
+  try {
+    const { type, uid, page } = req.body as { type: string; uid: string; page: string }
+    if (!type || !uid) { res.status(400).json({ error: 'type and uid required' }); return }
+    // Best-effort write — don't block the response
+    void getFirestore(getAdminApp()).collection('funnelEvents').add({
+      type,
+      uid,
+      page: page ?? '',
+      timestamp: new Date(),
+    })
+    res.json({ ok: true })
+  } catch {
+    res.status(500).json({ error: 'Could not log event' })
+  }
+})
+
 app.post('/api/admin/login', (req, res) => {
   const { password } = req.body as { password?: string }
   const adminKey = process.env.ADMIN_PASSWORD
@@ -817,32 +948,53 @@ async function maybeSendDailyPush(): Promise<void> {
     }
 
     const appUrl = process.env.APP_URL ?? 'https://koru.com.ng'
-    const prompt = getDailyPushPrompt(dateKey)
+    const { hour } = getLagosDateParts()
     const messaging = getMessaging(getAdminApp())
     let sent = 0
     let removed = 0
 
     for (let start = 0; start < recipients.length; start += 500) {
       const batch = recipients.slice(start, start + 500)
-      const result = await messaging.sendEachForMulticast({
-        tokens: batch.map(({ token }) => token),
-        notification: {
-          title: 'A moment for yourself 🌿',
-          body: prompt,
-        },
-        data: {
-          url: '/home',
-          date: dateKey,
-        },
-        webpush: {
-          fcmOptions: { link: `${appUrl}/home` },
-          notification: {
-            icon: `${appUrl}/apple-touch-icon.png`,
-            badge: `${appUrl}/favicon.svg`,
-            tag: 'koru-daily-reflection',
+
+      // Build a personalized, time-aware notification per recipient
+      const messages = await Promise.all(batch.map(async ({ profileDoc, token }) => {
+        const profileData = profileDoc.data()
+        const firstName = String(profileData.displayName ?? '').split(' ')[0] || 'there'
+        const hasCheckedInToday = profileData.lastActive === dateKey
+
+        // Time-aware, empathetic message
+        let title: string
+        let body: string
+        if (hasCheckedInToday) {
+          title = 'Thanks for showing up today 🌿'
+          body = `${firstName}, you checked in today. Come back when you're ready to reflect more.`
+        } else if (hour >= 19) {
+          title = `Hey ${firstName}, it's evening 🌙`
+          body = `Ready to log today's energy? A quick check-in takes 30 seconds.`
+        } else if (hour >= 12) {
+          title = `Hey ${firstName} 👋`
+          body = `How's your day going? Take a moment to check in with yourself.`
+        } else {
+          title = `Good morning ${firstName} 🌅`
+          body = `Start your day with a quick check-in. What's one thing you're carrying today?`
+        }
+
+        return {
+          token,
+          notification: { title, body },
+          data: { url: '/home', date: dateKey },
+          webpush: {
+            fcmOptions: { link: `${appUrl}/home` },
+            notification: {
+              icon: `${appUrl}/apple-touch-icon.png`,
+              badge: `${appUrl}/favicon.svg`,
+              tag: 'koru-daily-reflection',
+            },
           },
-        },
-      })
+        }
+      }))
+
+      const result = await messaging.sendEach(messages)
 
       sent += result.successCount
       for (let index = 0; index < result.responses.length; index += 1) {
@@ -892,6 +1044,95 @@ function buildReminderEmail(name: string, prompt: string): string {
         </td></tr>
         <tr><td style="padding:24px 0;text-align:center">
           <p style="margin:0;color:#A2BFA6;font-size:12px">You're receiving this because you opted in to weekly prompts.</p>
+          <p style="margin:4px 0 0;color:#A2BFA6;font-size:12px">Manage preferences in your <a href="${process.env.APP_URL ?? 'https://getkoru.app'}/profile" style="color:#7a9a86">profile settings</a>.</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`
+}
+
+function buildWeeklyWrapUpEmail(name: string, stats: {
+  checkInCount: number
+  streak: number
+  avgMood: number
+  avgEnergy: number
+}): string {
+  const safeName = escapeHtml(name)
+  const moodEmoji = stats.avgMood >= 4 ? '😊' : stats.avgMood >= 3 ? '😐' : stats.avgMood >= 2 ? '😔' : '😞'
+  const moodLabel = stats.avgMood >= 4.5 ? 'Thriving' : stats.avgMood >= 3.5 ? 'Good' : stats.avgMood >= 2.5 ? 'Okay' : stats.avgMood >= 1.5 ? 'Low' : 'Rough'
+  const energyBars = '▮'.repeat(Math.round(stats.avgEnergy)) + '▯'.repeat(5 - Math.round(stats.avgEnergy))
+
+  return `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#FBF9F5;font-family:Inter,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#FBF9F5;padding:40px 20px">
+    <tr><td align="center">
+      <table width="100%" cellpadding="0" cellspacing="0" style="max-width:520px">
+        <tr><td style="padding-bottom:32px;text-align:center">
+          <div style="width:44px;height:44px;background:#1B3B2B;border-radius:14px;display:inline-flex;align-items:center;justify-content:center;font-size:22px;line-height:44px">🌿</div>
+          <p style="margin:8px 0 0;font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;color:#1B3B2B;font-size:16px">Koru</p>
+        </td></tr>
+        <tr><td style="background:#fff;border-radius:20px;padding:36px 32px;border:1px solid rgba(162,191,166,0.3)">
+          <p style="margin:0 0 8px;color:#A2BFA6;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:1px">Your Weekly Wrap-Up</p>
+          <h1 style="margin:0 0 20px;color:#1B3B2B;font-family:'Plus Jakarta Sans',sans-serif;font-size:24px;font-weight:700">Hey ${safeName} 👋</h1>
+
+          <p style="margin:0 0 24px;color:#4a6a58;font-size:15px;line-height:1.65">Here's how your week looked on Koru:</p>
+
+          <!-- Stats grid -->
+          <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:28px">
+            <tr>
+              <td style="width:50%;padding:8px">
+                <div style="background:rgba(162,191,166,0.12);border-radius:16px;padding:20px;text-align:center">
+                  <p style="margin:0;font-size:32px">${moodEmoji}</p>
+                  <p style="margin:8px 0 0;color:#1B3B2B;font-family:'Plus Jakarta Sans',sans-serif;font-size:18px;font-weight:700">${moodLabel}</p>
+                  <p style="margin:2px 0 0;color:#7a9a86;font-size:12px">Avg mood</p>
+                </div>
+              </td>
+              <td style="width:50%;padding:8px">
+                <div style="background:rgba(162,191,166,0.12);border-radius:16px;padding:20px;text-align:center">
+                  <p style="margin:0;font-size:32px">⚡</p>
+                  <p style="margin:8px 0 0;color:#1B3B2B;font-family:'Plus Jakarta Sans',sans-serif;font-size:18px;font-weight:700">${energyBars}</p>
+                  <p style="margin:2px 0 0;color:#7a9a86;font-size:12px">Avg energy: ${stats.avgEnergy}/5</p>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:8px">
+                <div style="background:rgba(162,191,166,0.12);border-radius:16px;padding:16px;text-align:center">
+                  <p style="margin:0;color:#1B3B2B;font-family:'Plus Jakarta Sans',sans-serif;font-size:24px;font-weight:700">${stats.checkInCount}</p>
+                  <p style="margin:2px 0 0;color:#7a9a86;font-size:12px">Check-ins this week</p>
+                </div>
+              </td>
+              <td style="padding:8px">
+                <div style="background:rgba(162,191,166,0.12);border-radius:16px;padding:16px;text-align:center">
+                  <p style="margin:0;color:#1B3B2B;font-family:'Plus Jakarta Sans',sans-serif;font-size:24px;font-weight:700">🔥 ${stats.streak}</p>
+                  <p style="margin:2px 0 0;color:#7a9a86;font-size:12px">Day streak</p>
+                </div>
+              </td>
+            </tr>
+          </table>
+
+          <!-- Blurred teaser section -->
+          <div style="position:relative;border-radius:16px;padding:24px;background:rgba(27,59,43,0.04);border:1px solid rgba(162,191,166,0.2);margin-bottom:28px;overflow:hidden">
+            <p style="margin:0 0 8px;color:#A2BFA6;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:1px">✦ Pro Trend Report</p>
+            <p style="margin:0 0 12px;color:#1B3B2B;font-family:'Plus Jakarta Sans',sans-serif;font-size:16px;font-weight:700">Your mood is trending upward 📈</p>
+            <div style="filter:blur(4px);user-select:none;color:#4a6a58;font-size:14px;line-height:1.6">
+              <p style="margin:0 0 8px">Your boundary confidence increased 23% this week, driven by three consecutive thriving days. The pattern suggests a correlation between your morning energy levels and evening mood stability...</p>
+              <p style="margin:0">Your decision clarity score shifted from "Unsettled &amp; Searching" to "Finding Your Footing" — a meaningful transition that typically precedes a breakthrough period...</p>
+            </div>
+            <div style="position:absolute;bottom:0;left:0;right:0;height:60px;background:linear-gradient(transparent,rgba(255,255,255,0.95));display:flex;align-items:flex-end;justify-content:center;padding-bottom:12px">
+              <a href="${process.env.APP_URL ?? 'https://koru.com.ng'}/upgrade" style="display:inline-block;padding:10px 24px;background:#1B3B2B;color:#fff;text-decoration:none;border-radius:12px;font-family:'Plus Jakarta Sans',sans-serif;font-weight:600;font-size:13px">Unlock trend reports →</a>
+            </div>
+          </div>
+
+          <a href="${process.env.APP_URL ?? 'https://getkoru.app'}/home" style="display:inline-block;padding:14px 28px;background:#1B3B2B;color:#fff;text-decoration:none;border-radius:14px;font-family:'Plus Jakarta Sans',sans-serif;font-weight:600;font-size:14px">Open Koru →</a>
+        </td></tr>
+        <tr><td style="padding:24px 0;text-align:center">
+          <p style="margin:0;color:#A2BFA6;font-size:12px">You're receiving this because you opted in to weekly emails.</p>
           <p style="margin:4px 0 0;color:#A2BFA6;font-size:12px">Manage preferences in your <a href="${process.env.APP_URL ?? 'https://getkoru.app'}/profile" style="color:#7a9a86">profile settings</a>.</p>
         </td></tr>
       </table>
