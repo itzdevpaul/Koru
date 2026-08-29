@@ -74,8 +74,8 @@ export default function TermsOfService() {
             className="text-base sm:text-lg leading-relaxed max-w-2xl"
             style={{ fontFamily: "'Inter', sans-serif", color: '#4a6a58' }}
           >
-            Please read these terms carefully before using Koru. By joining our waitlist
-            or using our platform, you agree to be bound by these terms.
+            Please read these terms carefully before using Koru. By using our platform,
+            you agree to be bound by these terms.
           </p>
         </div>
 
@@ -84,7 +84,7 @@ export default function TermsOfService() {
             <p>
               By accessing or using Koru's website at{' '}
               <a href="https://koru.com.ng" className="underline hover:text-[#3a6b4a]">koru.com.ng</a>{' '}
-              (the "<strong>Site</strong>"), joining our waitlist, or using any Koru services
+              (the "<strong>Site</strong>"), or using any Koru services
               (collectively the "<strong>Services</strong>"), you agree to be bound by these
               Terms of Service ("<strong>Terms</strong>") and our{' '}
               <Link to="/privacy-policy" className="underline hover:text-[#3a6b4a]">Privacy Policy</Link>.
@@ -120,26 +120,11 @@ export default function TermsOfService() {
             </p>
           </Section>
 
-          <Section title="4. Waitlist">
-            <p>
-              By joining the Koru waitlist, you provide your email address and consent to
-              receive a launch notification and relevant product updates from Koru. You may
-              unsubscribe at any time by clicking the unsubscribe link in any email or by
-              contacting us at{' '}
-              <a href="mailto:hello@koru.com.ng" className="underline hover:text-[#3a6b4a]">hello@koru.com.ng</a>.
-            </p>
-            <p>
-              Joining the waitlist does not guarantee access to Koru at any particular time,
-              nor does it create any contractual obligation on Koru's part to launch the
-              Services by a specific date.
-            </p>
-          </Section>
-
-          <Section title="5. Use of the Services">
-            <SubSection title="5.1 Permitted Use">
+          <Section title="4. Use of the Services">
+            <SubSection title="4.1 Permitted Use">
               <p>You may use the Services for your own personal, non-commercial self-discovery and development purposes.</p>
             </SubSection>
-            <SubSection title="5.2 Prohibited Conduct">
+            <SubSection title="4.2 Prohibited Conduct">
               <p>You agree not to:</p>
               <ul>
                 <li>Use the Services for any unlawful, harmful, or fraudulent purpose.</li>
@@ -152,7 +137,7 @@ export default function TermsOfService() {
             </SubSection>
           </Section>
 
-          <Section title="6. Intellectual Property">
+          <Section title="5. Intellectual Property">
             <p>
               All content on the Site and within the Services — including text, graphics,
               assessments, reports, logos, and software — is owned by or licensed to Koru and
@@ -170,7 +155,7 @@ export default function TermsOfService() {
             </p>
           </Section>
 
-          <Section title="7. Payments & Premium Reports">
+          <Section title="6. Payments & Premium Reports">
             <p>
               Certain features — including comprehensive reports and personalised roadmaps —
               will require payment of a micro-fee at the time of access. Payment details,
@@ -184,7 +169,7 @@ export default function TermsOfService() {
             </p>
           </Section>
 
-          <Section title="8. Disclaimers">
+          <Section title="7. Disclaimers">
             <p>
               The Services and all content are provided on an "<strong>as is</strong>" and
               "<strong>as available</strong>" basis without warranties of any kind, express or
@@ -203,7 +188,7 @@ export default function TermsOfService() {
             </p>
           </Section>
 
-          <Section title="9. Limitation of Liability">
+          <Section title="8. Limitation of Liability">
             <p>
               To the fullest extent permitted by applicable law, Koru and its directors,
               employees, and affiliates shall not be liable for any indirect, incidental,
@@ -217,7 +202,7 @@ export default function TermsOfService() {
             </p>
           </Section>
 
-          <Section title="10. Third-Party Links">
+          <Section title="9. Third-Party Links">
             <p>
               The Services may contain links to third-party websites or services. These links
               are provided for your convenience only. Koru does not endorse and is not
@@ -226,7 +211,7 @@ export default function TermsOfService() {
             </p>
           </Section>
 
-          <Section title="11. Termination">
+          <Section title="10. Termination">
             <p>
               We reserve the right to suspend or terminate your access to the Services at any
               time, without notice, if you violate these Terms or engage in conduct we determine
@@ -239,7 +224,7 @@ export default function TermsOfService() {
             </p>
           </Section>
 
-          <Section title="12. Governing Law">
+          <Section title="11. Governing Law">
             <p>
               These Terms are governed by and construed in accordance with the laws of the
               Federal Republic of Nigeria. Any dispute arising from these Terms shall be
@@ -248,7 +233,7 @@ export default function TermsOfService() {
             </p>
           </Section>
 
-          <Section title="13. Changes to These Terms">
+          <Section title="12. Changes to These Terms">
             <p>
               We may update these Terms from time to time. When we do, we will revise the
               "last updated" date above. Continued use of the Services after changes are
@@ -257,7 +242,7 @@ export default function TermsOfService() {
             </p>
           </Section>
 
-          <Section title="14. Contact">
+          <Section title="13. Contact">
             <p>Questions about these Terms? Get in touch:</p>
             <div
               className="mt-4 p-5 rounded-2xl"
