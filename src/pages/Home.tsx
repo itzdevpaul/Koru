@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
 import { useSubscription } from '../context/SubscriptionContext'
-import { logOut, getQuizResults, updateStreak, getUserProfile, updateUserProfile, sendReminderEmail, saveCheckIn, getTodayCheckIn, getTodayPrompt, MOOD_OPTIONS, getActiveAd, saveIntention, markIntentionSurfaced, getRecentCheckIns, getRecentMoodMatches, type SavedQuizResult, type CheckIn, type MoodKey, type Ad, type UserProfile, type MoodMatch } from '../firebase'
+import { logOut, getQuizResults, updateStreak, getUserProfile, updateUserProfile, sendReminderEmail, sendWeeklyWrapUp, saveCheckIn, getTodayCheckIn, getTodayPrompt, MOOD_OPTIONS, getActiveAd, saveIntention, markIntentionSurfaced, getRecentCheckIns, getRecentMoodMatches, type SavedQuizResult, type CheckIn, type MoodKey, type Ad, type UserProfile, type MoodMatch } from '../firebase'
 import { generateCheckInShareImage, shareOrDownloadImage } from '../utils/shareImage'
 import { quizzes, insightCombinations } from '../data/quizzes'
 import AdModal from '../components/AdModal'
@@ -100,6 +100,7 @@ export default function Home() {
   }, [user])
 
   // ── Weekly reminder: fire once on mount if opted in and 7+ days since last send ──
+  // On Sundays, send the weekly wrap-up instead of the regular reminder.
   useEffect(() => {
     if (!user?.email) return
     getUserProfile(user.uid).then(async (profile) => {
@@ -110,10 +111,20 @@ export default function Home() {
         const diffDays = (Date.now() - last.getTime()) / (1000 * 60 * 60 * 24)
         if (diffDays < 7) return
       }
-      const topResult = (await getQuizResults(user.uid))[0]
-      const ok = await sendReminderEmail(user.email!, profile.displayName || 'there', topResult?.resultTitle)
-      if (ok) {
-        await updateUserProfile(user.uid, { lastReminderSent: today })
+      const dayOfWeek = new Date().getDay() // 0 = Sunday
+      if (dayOfWeek === 0) {
+        // Sunday — send the weekly wrap-up email
+        const ok = await sendWeeklyWrapUp(user.email!, profile.displayName || 'there')
+        if (ok) {
+          await updateUserProfile(user.uid, { lastReminderSent: today })
+        }
+      } else {
+        // Other days — send the regular reflection prompt
+        const topResult = (await getQuizResults(user.uid))[0]
+        const ok = await sendReminderEmail(user.email!, profile.displayName || 'there', topResult?.resultTitle)
+        if (ok) {
+          await updateUserProfile(user.uid, { lastReminderSent: today })
+        }
       }
     })
   }, [user])

@@ -31,6 +31,24 @@ Run with: `docker compose -f docker-compose.base44.yml up -d` (preview on host p
 - `manifest.webmanifest` declares all three sizes with proper `purpose` (`any` for 192/512, `maskable` for 1024).
 - To regenerate: `convert -density 384 -background none public/favicon.svg -resize 1024x1024 public/apple-touch-icon.png` (and 192/512 variants).
 
+## Growth, retention, security & analytics (2026-08-29)
+
+### Growth & Social Proof
+- **Aesthetic Shareables**: Already existed — quiz results, daily check-ins, clarity delta, and future self cards can all be exported as 1080×1080 (or 1080×1350) PNG images via canvas rendering (`src/utils/shareImage.ts`). The Quiz page and Home page both have "Share" buttons that generate and download/share these images.
+- **"Give a Month" Referral**: Threshold changed from 10 to **100 referrals** for the 7-day Pro reward. Existing users without invite codes can be backfilled via the admin endpoint `POST /api/admin/backfill-codes` (admin-only). The Profile page shows a progress bar (not individual dots) for the 100-referral goal.
+
+### Retention
+- **Contextual Push Notifications**: The daily push scheduler (`maybeSendDailyPush` in `server/index.ts`) now sends **personalized, time-aware** notifications. Each recipient gets a message tailored to their name, time of day (morning/afternoon/evening), and whether they've already checked in today. Uses `sendEach` (per-device messages) instead of `sendEachForMulticast` (single message for all).
+- **Weekly Wrap-Up Email**: New endpoint `POST /api/send-weekly-wrapup` fetches the user's check-ins for the past 7 days, computes streak/avg mood/avg energy, and sends an HTML email with a stats grid and a **blurred teaser section** for Pro trend reports. Triggered automatically on Sundays via the Home page's weekly email useEffect (replaces the regular reminder on Sundays). Client function: `sendWeeklyWrapUp()` in `src/firebase.ts`.
+
+### Security
+- **Data Decoupling + Encryption at Rest**: Sensitive free-text fields (check-in reflections, future-self intentions) are now **client-side encrypted** using AES-GCM via the Web Crypto API (`src/utils/crypto.ts`). The encryption key is derived from the user's UID + an app salt via PBKDF2 (150K iterations). Encrypted data is stored as `{ reflectionEnc: { c, i } }` (base64 ciphertext + IV) instead of plaintext `reflection`. Backward-compatible: old plaintext entries are still readable; new writes use encryption. The `getUserProfile` and check-in read functions automatically decrypt.
+- **Auto-logout on Inactivity**: `src/components/IdleTimer.tsx` signs users out after **15 minutes** of no interaction (mouse, keyboard, touch, scroll). Shows a warning toast at 14 minutes. Only active for authenticated users. Mounted globally in `main.tsx`.
+- **Input Sanitization**: Already existed (`src/utils/sanitize.ts`) — all free-text inputs are sanitized with `sanitizeText`, `sanitizeDisplayName`, `sanitizeEmail`, etc. Verified to be used across all write paths.
+
+### Funnel Analytics
+- **Drop-off Tracking**: `src/utils/funnelEvents.ts` logs upgrade-page events to a Firestore `funnelEvents` collection. Tracked events: `upgrade_page_view`, `upgrade_scroll_50`, `upgrade_scroll_100`, `upgrade_price_seen`, `upgrade_cta_click`, `upgrade_bounce`. The bounce event uses `navigator.sendBeacon` to a server endpoint (`POST /api/funnel-event`) for reliability on page unload. The Upgrade page (`src/pages/Upgrade.tsx`) integrates all tracking hooks.
+
 ## Security audit (2026-08-28)
 
 - **Auth**: All sensitive endpoints verify Firebase ID tokens via `getAuthenticatedUser()`; admin routes additionally check `decoded.email === ADMIN_EMAIL`. IDOR prevented by verifying `uid === decoded.uid`.

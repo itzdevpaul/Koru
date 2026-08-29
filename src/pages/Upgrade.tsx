@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
 import { useSubscription } from '../context/SubscriptionContext'
 import { getPricing, type Pricing } from '../firebase'
+import { resetFunnelTracking, trackUpgradePageView, trackUpgradeScroll, trackPriceSeen, trackCtaClick, trackBounce } from '../utils/funnelEvents'
 import KoruLogo from '../components/KoruLogo'
 
 const F = "'Plus Jakarta Sans', sans-serif"
@@ -17,14 +18,40 @@ export default function Upgrade() {
   const [initiating, setInitiating] = useState(false)
   const [error, setError] = useState('')
   const [pricing, setPricing] = useState<Pricing | null>(null)
+  const priceRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (!user) return
     getPricing().then(setPricing).catch(() => {})
+    // Funnel: track page view
+    resetFunnelTracking()
+    trackUpgradePageView()
+    // Funnel: track bounce on unmount if no CTA click
+    return () => trackBounce()
   }, [user])
+
+  // Funnel: track scroll depth
+  useEffect(() => {
+    const onScroll = () => trackUpgradeScroll()
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [])
+
+  // Funnel: track price seen (when price enters viewport)
+  useEffect(() => {
+    const el = priceRef.current
+    if (!el) return
+    const observer = new IntersectionObserver(
+      (entries) => { if (entries[0]?.isIntersecting) trackPriceSeen() },
+      { threshold: 0.5 },
+    )
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [pricing])
 
   async function handleSubscribe() {
     if (!user?.email) return
+    trackCtaClick(pricing?.finalAmount)
     setInitiating(true)
     setError('')
 
@@ -103,7 +130,7 @@ export default function Upgrade() {
           }}
         >
           {/* Price */}
-          <div className="flex items-end gap-2 mb-2">
+          <div ref={priceRef} className="flex items-end gap-2 mb-2">
             {pricing && pricing.discountPercent > 0 ? (
               <>
                 <span className="text-4xl font-bold" style={{ fontFamily: F, color: c.forest }}>
