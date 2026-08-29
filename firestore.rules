@@ -3,7 +3,6 @@ rules_version = '2';
 // Firestore security rules for Koru.
 //
 // Coverage:
-//   /waitlist/{docId}                    — public create (validated), no read
 //   /users/{uid}/profile/main            — owner read/write; admin read
 //   /users/{uid}/quizResults/{resultId}  — owner read + validated create; admin read; no update/delete
 //   /users/{uid}/subscription/main       — owner read/write; admin read
@@ -27,24 +26,6 @@ service cloud.firestore {
 
     function isOwner(uid) {
       return request.auth != null && request.auth.uid == uid;
-    }
-
-    // ── Waitlist ──────────────────────────────────────────────────────────────
-    // Anyone may submit an email to the waitlist (create only).
-    // Fields are strictly validated; reads are blocked (use Admin SDK server-side).
-    match /waitlist/{docId} {
-      allow create: if
-        request.resource.data.keys().hasAll(['email', 'createdAt', 'referralCode', 'userAgent']) &&
-        request.resource.data.email is string &&
-        request.resource.data.email.matches('^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$') &&
-        request.resource.data.createdAt == request.time &&
-        request.resource.data.referralCode is string &&
-        request.resource.data.referralCode.matches('^[A-Z0-9]{6,12}$') &&
-        request.resource.data.userAgent is string &&
-        request.resource.data.userAgent.size() > 0 &&
-        request.resource.data.userAgent.size() <= 512;
-
-      allow read: if isAdmin();
     }
 
     // ── User profile ──────────────────────────────────────────────────────────

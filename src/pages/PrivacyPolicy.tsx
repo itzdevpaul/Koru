@@ -89,13 +89,13 @@ export default function PrivacyPolicy() {
           <Section title="2. Information We Collect">
             <SubSection title="2.1 Information You Provide">
               <ul>
-                <li><strong>Waitlist email address:</strong> When you join our waitlist, we collect your email address to notify you at launch and send relevant updates.</li>
-                <li><strong>Assessment responses:</strong> When you complete assessments (at launch), your answers are processed to generate your personalised report. You may complete assessments anonymously — a name is never required.</li>
+                <li><strong>Account email address:</strong> When you create an account, we collect your email address to authenticate you and send relevant updates.</li>
+                <li><strong>Assessment responses:</strong> When you complete assessments, your answers are processed to generate your personalised report. You may complete assessments anonymously — a name is never required.</li>
               </ul>
             </SubSection>
             <SubSection title="2.2 Information Collected Automatically">
               <ul>
-                <li><strong>Browser metadata:</strong> We log your browser's user-agent string when you join the waitlist, to help us optimise compatibility.</li>
+                <li><strong>Browser metadata:</strong> We log your browser's user-agent string to help us optimise compatibility.</li>
                 <li><strong>Usage data:</strong> Standard web analytics data (page views, session duration, referral source) may be collected to improve the product.</li>
               </ul>
             </SubSection>
@@ -106,7 +106,7 @@ export default function PrivacyPolicy() {
 
           <Section title="3. How We Use Your Information">
             <ul>
-              <li>To send you a launch notification and product updates (waitlist email).</li>
+              <li>To authenticate your account and send you product updates.</li>
               <li>To generate your personalised self-discovery report (assessment responses).</li>
               <li>To improve the performance, compatibility, and experience of Koru.</li>
               <li>To comply with applicable law where required.</li>
@@ -118,7 +118,7 @@ export default function PrivacyPolicy() {
 
           <Section title="4. Data Storage & Security">
             <p>
-              Waitlist data is stored in Google Firebase Firestore, hosted on Google Cloud
+              Your data is stored in Google Firebase Firestore, hosted on Google Cloud
               infrastructure with industry-standard encryption at rest (AES-256) and in transit
               (TLS 1.2+). Google Cloud's security certifications include ISO 27001, SOC 2/3,
               and GDPR compliance frameworks.
@@ -131,15 +131,15 @@ export default function PrivacyPolicy() {
 
           <Section title="5. Anonymity Options">
             <p>
-              When Koru launches, users will be able to take assessments without providing any
-              identifying information. Anonymous sessions are not linked to any email address
+              Users can take assessments without providing any identifying information beyond
+              their account email. Anonymous sessions are not linked to any email address
               unless you choose to save or share your results.
             </p>
           </Section>
 
           <Section title="6. Cookies & Tracking">
             <p>
-              Our waitlist page uses no third-party advertising or tracking cookies. We may use
+              Our site uses no third-party advertising or tracking cookies. We may use
               essential cookies to maintain session state and first-party analytics to understand
               aggregate usage patterns. We do not use cross-site tracking technologies.
             </p>
@@ -148,7 +148,7 @@ export default function PrivacyPolicy() {
           <Section title="7. Third-Party Services">
             <p>We use the following third-party services:</p>
             <ul>
-              <li><strong>Google Firebase / Firestore</strong> — email storage and backend infrastructure. Governed by <a href="https://firebase.google.com/support/privacy" target="_blank" rel="noopener noreferrer" className="underline hover:text-[#3a6b4a]">Google's Privacy Policy</a>.</li>
+              <li><strong>Google Firebase / Firestore</strong> — data storage and backend infrastructure. Governed by <a href="https://firebase.google.com/support/privacy" target="_blank" rel="noopener noreferrer" className="underline hover:text-[#3a6b4a]">Google's Privacy Policy</a>.</li>
               <li><strong>Google Fonts</strong> — font delivery. May log a request to Google's servers when the page loads.</li>
             </ul>
             <p className="mt-3">We do not integrate Facebook Pixel, Google Ads, or any advertising networks at this time.</p>
@@ -160,7 +160,7 @@ export default function PrivacyPolicy() {
               <li><strong>Access</strong> the personal data we hold about you.</li>
               <li><strong>Correct</strong> inaccurate data.</li>
               <li><strong>Delete</strong> your data ("right to be forgotten").</li>
-              <li><strong>Withdraw consent</strong> at any time (e.g. unsubscribe from the waitlist).</li>
+              <li><strong>Withdraw consent</strong> at any time (e.g. unsubscribe from updates).</li>
               <li><strong>Object</strong> to certain types of processing.</li>
             </ul>
             <p className="mt-3">
@@ -172,9 +172,10 @@ export default function PrivacyPolicy() {
 
           <Section title="9. Data Retention">
             <p>
-              Waitlist email addresses are retained until Koru launches and you have been
-              notified. After launch, addresses are removed from the waitlist list within 90 days
-              unless you opt in to continued communications. You may request removal at any time.
+              Your account data is retained for as long as your account is active. You may
+              request deletion of your data at any time. If you delete your account, your
+              personal information is removed within 90 days unless retention is required by
+              applicable law.
             </p>
           </Section>
 
@@ -192,7 +193,7 @@ export default function PrivacyPolicy() {
             <p>
               We may update this Privacy Policy as the product evolves. When we do, we will
               revise the "last updated" date at the top of this page and, where changes are
-              material, notify waitlist subscribers by email.
+              material, notify users by email.
             </p>
           </Section>
 

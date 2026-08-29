@@ -18,7 +18,7 @@
 - `src/pages/TermsOfService.tsx` — Terms of service
 - `src/index.css` — Tailwind v4 + custom animations + design tokens
 - `vite.config.ts` — Vite config, port 5000, host 0.0.0.0, Firebase env var bridge
-- `firestore.rules` — Firestore security rules (waitlist collection)
+- `firestore.rules` — Firestore security rules
 
 ## Routes
 

@@ -806,24 +806,6 @@ export async function getRecentMoodMatches(uid: string, n = 20): Promise<MoodMat
   return snap.docs.map(d => d.data() as MoodMatch)
 }
 
-// ── Waitlist (legacy) ───────────────────────────────────────────────────────
-
-export type WaitlistResult =
-  | { success: true; duplicate: false; referralCode: string }
-  | { success: true; duplicate: true }
-  | { success: false; error: string }
-
-export interface WaitlistEntry {
-  id: string
-  email: string
-  createdAt: Timestamp | null
-  source: string
-  domain: string
-  userAgent: string
-  referralCode: string
-  referredBy?: string
-}
-
 // ── Ads ──────────────────────────────────────────────────────────────────────
 
 export interface Ad {
@@ -873,18 +855,8 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
     )
   })
 }
-
-export async function getWaitlistEntries(): Promise<WaitlistEntry[]> {
-  const q = query(collection(db, 'waitlist'), orderBy('createdAt', 'desc'))
-  const snapshot = await withTimeout(getDocs(q), 15_000)
-  return snapshot.docs.map(doc => ({
-    id: doc.id,
-    email: doc.data().email ?? '',
-    createdAt: doc.data().createdAt ?? null,
-    source: doc.data().source ?? '',
-    domain: doc.data().domain ?? '',
-    userAgent: doc.data().userAgent ?? '',
-    referralCode: doc.data().referralCode ?? '',
-    referredBy: doc.data().referredBy,
-  }))
 }
+
+
+
+
