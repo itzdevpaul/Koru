@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { Link } from 'react-router-dom'
+import KoruLogo from '../components/KoruLogo'
 
 export default function TermsOfService() {
   useEffect(() => {
@@ -31,19 +32,7 @@ export default function TermsOfService() {
           className="relative z-10 flex items-center justify-between px-4 sm:px-6 py-4 sm:py-5 max-w-4xl mx-auto"
         >
           <Link to="/" aria-label="Back to Koru home" className="flex items-center gap-2.5 no-underline">
-            <div
-              className="w-9 h-9 rounded-xl flex items-center justify-center text-lg shadow-sm flex-shrink-0"
-              style={{ background: 'linear-gradient(135deg, #1B3B2B 0%, #2a5240 100%)' }}
-              aria-hidden="true"
-            >
-              🌿
-            </div>
-            <span
-              className="text-xl font-bold tracking-tight"
-              style={{ color: '#1B3B2B' }}
-            >
-              Koru
-            </span>
+            <KoruLogo size={36} wordmarkSize={18} />
           </Link>
 
           <Link
@@ -337,8 +326,7 @@ function PageFooter() {
     >
       <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
         <Link to="/" className="flex items-center gap-2 no-underline">
-          <div className="w-7 h-7 rounded-lg flex items-center justify-center text-sm" style={{ background: '#1B3B2B' }} aria-hidden="true">🌿</div>
-          <span className="text-base font-bold" style={{ color: '#1B3B2B' }}>Koru</span>
+          <KoruLogo size={28} wordmarkSize={14} />
         </Link>
         <p className="text-xs" style={{ fontFamily: "'Inter', sans-serif", color: '#7a9a86' }}>
           © {new Date().getFullYear()} Koru. All rights reserved.
