@@ -1,0 +1,127 @@
+Content-Security-Policy
+Summary
+Security control gap detected during automated assessment.
+Steps
+Review and address this security issue based on the finding details.
+For Apache: review .htaccess rules, disable directory listing, keep modules patched.
+Reference: https://owasp.org/www-project-top-ten/
+Verify
+Run a follow-up scan on the same target
+Confirm finding no longer appears or severity reduced
+Permissions-Policy
+Summary
+Security control gap detected during automated assessment.
+Steps
+Review and address this security issue based on the finding details.
+Reference: https://owasp.org/www-project-top-ten/
+Verify
+Run a follow-up scan on the same target
+Confirm finding no longer appears or severity reduced
+CORS Policy
+Summary
+Overly permissive CORS configuration allows cross-origin data access.
+Steps
+Restrict Access-Control-Allow-Origin to trusted domains. Avoid wildcard with credentials.
+Reference: https://cwe.mitre.org/data/definitions/942.html
+Verify
+Run a follow-up scan on the same target
+Confirm finding no longer appears or severity reduced
+HSTS SubDomains
+Summary
+HSTS policy does not cover subdomains.
+Steps
+Add includeSubDomains to Strict-Transport-Security when all subdomains support HTTPS.
+Verify
+Run a follow-up scan on the same target
+Confirm finding no longer appears or severity reduced
+Server Header
+Summary
+Server header reveals implementation details.
+Steps
+Remove or genericize the Server response header to reduce fingerprinting.
+Reference: https://cwe.mitre.org/data/definitions/200.html
+Verify
+Re-scan after deploying header changes
+Confirm headers via security headers checker
+Request Tracking
+Summary
+Logging and monitoring controls require review.
+Steps
+Implement security logging, monitoring, and alerting for abuse detection.
+Verify
+Run a follow-up scan on the same target
+Confirm finding no longer appears or severity reduced
+Load Balancing
+Summary
+Multiple IPs indicate load-balanced infrastructure.
+Steps
+Document load balancer configuration and ensure health checks are configured.
+Verify
+Run a follow-up scan on the same target
+Confirm finding no longer appears or severity reduced
+HSTS Preload
+Summary
+HSTS preload directive is not configured.
+Steps
+Consider adding preload to HSTS after verifying full HTTPS coverage.
+Verify
+Run a follow-up scan on the same target
+Confirm finding no longer appears or severity reduced
+Public File Found
+Summary
+Public file path is reachable without authentication.
+Steps
+Remove publicly accessible files that are not intended for anonymous access.
+Verify
+Run a follow-up scan on the same target
+Confirm finding no longer appears or severity reduced
+Public File Found
+Summary
+Public file path is reachable without authentication.
+Steps
+Remove publicly accessible files that are not intended for anonymous access.
+Verify
+Run a follow-up scan on the same target
+Confirm finding no longer appears or severity reduced
+Cookies
+Summary
+Cookie configuration requires review.
+Steps
+Review cookie usage and apply Secure, HttpOnly, and SameSite attributes where appropriate.
+Verify
+Run a follow-up scan on the same target
+Confirm finding no longer appears or severity reduced
+HTTP Method Enumeration
+Summary
+Security control gap detected during automated assessment.
+False positive hint
+Low-severity advisory signals are useful for hygiene but rarely warrant emergency work. Suppress from Fix First unless they participate in an attack path.
+Steps
+Review and address this security issue based on the finding details.
+Reference: https://owasp.org/www-project-top-ten/
+Verify
+Run a follow-up scan on the same target
+Confirm finding no longer appears or severity reduced
+HTTP Methods Test Summary
+Summary
+Automated test coverage summary — not a vulnerability finding.
+False positive hint
+Low-severity advisory signals are useful for hygiene but rarely warrant emergency work. Suppress from Fix First unless they participate in an attack path.
+Steps
+Review scan coverage summary for areas requiring manual verification.
+Verify
+Run a follow-up scan on the same target
+Confirm finding no longer appears or severity reduced
+Cryptographic Failures
+Summary
+Cryptographic failure tests completed.
+Steps
+Review cryptographic controls including TLS, hashing, and secret handling.
+Verify
+Run a follow-up scan on the same target
+Confirm finding no longer appears or severity reduced
+Log Injection
+Summary
+Advanced injection pattern detected during automated testing.
+Steps
+Validate and encode all user-controlled input in the relevant parser context.
