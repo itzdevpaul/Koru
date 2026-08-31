@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
 import { useSubscription } from '../context/SubscriptionContext'
-import { logOut, getQuizResults, updateStreak, getUserProfile, updateUserProfile, sendReminderEmail, sendWeeklyWrapUp, saveCheckIn, getTodayCheckIn, getTodayPrompt, MOOD_OPTIONS, getActiveAd, saveIntention, markIntentionSurfaced, getRecentCheckIns, getRecentMoodMatches, type SavedQuizResult, type CheckIn, type MoodKey, type Ad, type UserProfile, type MoodMatch } from '../firebase'
+import { logOut, getQuizResults, updateStreak, getStreakFreezesRemaining, getUserProfile, updateUserProfile, sendReminderEmail, sendWeeklyWrapUp, saveCheckIn, getTodayCheckIn, getTodayPrompt, MOOD_OPTIONS, getActiveAd, saveIntention, markIntentionSurfaced, getRecentCheckIns, getRecentMoodMatches, type SavedQuizResult, type CheckIn, type MoodKey, type Ad, type UserProfile, type MoodMatch } from '../firebase'
 import { generateCheckInShareImage, shareOrDownloadImage } from '../utils/shareImage'
 import { quizzes, insightCombinations } from '../data/quizzes'
 import AdModal from '../components/AdModal'
@@ -54,6 +54,8 @@ export default function Home() {
   const [checkInShareMsg, setCheckInShareMsg] = useState('')
   const [showFriendNudge, setShowFriendNudge] = useState(false)
   const [nudgeCopied, setNudgeCopied] = useState(false)
+  const [showReflection, setShowReflection] = useState(false)
+  const [streakFreezes, setStreakFreezes] = useState(0)
 
   // ── Future self / intentions ──
   const [profile, setProfile] = useState<UserProfile | null>(null)
@@ -78,6 +80,7 @@ export default function Home() {
       .then(setResults)
       .finally(() => setLoadingResults(false))
     updateStreak(user.uid).then(setStreak)
+    getStreakFreezesRemaining(user.uid).then(setStreakFreezes).catch(() => {})
     getTodayCheckIn(user.uid)
       .then(setTodayCheckIn)
       .finally(() => setLoadingCheckIn(false))
@@ -203,6 +206,7 @@ export default function Home() {
     setCheckInMood(existing?.mood ?? null)
     setCheckInEnergy(existing?.energy ?? 0)
     setCheckInReflection(existing?.reflection ?? '')
+    setShowReflection(!!existing?.reflection)
     setEditingCheckIn(true)
   }
 
@@ -561,11 +565,18 @@ export default function Home() {
                 className="rounded-3xl p-6"
                 style={{ background: c.card, border: `1px solid ${c.cardBorder}` }}
               >
-                <p className="text-xs font-semibold uppercase tracking-widest mb-5" style={{ fontFamily: I, color: c.sage }}>
-                  Daily check-in
-                </p>
+                <div className="flex items-center justify-between mb-5">
+                  <p className="text-xs font-semibold uppercase tracking-widest" style={{ fontFamily: I, color: c.sage }}>
+                    Daily check-in · 20 sec
+                  </p>
+                  {streakFreezes > 0 && (
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full" style={{ background: 'rgba(122,154,134,0.15)', color: '#7a9a86', fontFamily: I }}>
+                      ❄️ {streakFreezes} freeze{streakFreezes !== 1 ? 's' : ''} left
+                    </span>
+                  )}
+                </div>
 
-                {/* Mood */}
+                {/* Mood chips */}
                 <div className="mb-5">
                   <p className="text-sm font-semibold mb-3" style={{ fontFamily: F, color: c.forest }}>How are you feeling?</p>
                   <div className="flex gap-2 flex-wrap">
@@ -588,53 +599,77 @@ export default function Home() {
                   </div>
                 </div>
 
-                {/* Energy */}
+                {/* Energy slider */}
                 <div className="mb-5">
-                  <p className="text-sm font-semibold mb-3" style={{ fontFamily: F, color: c.forest }}>Energy level</p>
-                  <div className="flex items-center gap-2">
-                    {[1,2,3,4,5].map(n => (
-                      <button
-                        key={n}
-                        onClick={() => setCheckInEnergy(n)}
-                        className="flex flex-col items-center gap-1.5 transition-all duration-150"
-                      >
-                        <div
-                          className="w-8 h-8 rounded-xl flex items-center justify-center text-xs font-bold transition-all"
-                          style={{
-                            background: n <= checkInEnergy ? '#1B3B2B' : c.surface,
-                            color: n <= checkInEnergy ? '#fff' : c.muted,
-                            fontFamily: I,
-                          }}
-                        >
-                          {n}
-                        </div>
-                      </button>
-                    ))}
-                    <span className="text-xs ml-1" style={{ fontFamily: I, color: c.muted }}>
-                      {checkInEnergy === 0 ? 'tap to rate' : checkInEnergy <= 2 ? 'drained' : checkInEnergy === 3 ? 'moderate' : checkInEnergy === 4 ? 'energised' : 'fully charged'}
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-sm font-semibold" style={{ fontFamily: F, color: c.forest }}>Energy level</p>
+                    <span className="text-xs font-semibold" style={{ fontFamily: I, color: checkInEnergy > 0 ? c.forest : c.muted }}>
+                      {checkInEnergy === 0 ? 'slide to rate' : checkInEnergy <= 2 ? '⚡ drained' : checkInEnergy === 3 ? '⚡ moderate' : checkInEnergy === 4 ? '⚡ energised' : '⚡ fully charged'}
                     </span>
+                  </div>
+                  <input
+                    type="range"
+                    min={0}
+                    max={5}
+                    step={1}
+                    value={checkInEnergy}
+                    onChange={e => setCheckInEnergy(Number(e.target.value))}
+                    className="koru-energy-slider"
+                    style={{
+                      width: '100%',
+                      height: 36,
+                      appearance: 'none',
+                      WebkitAppearance: 'none',
+                      background: `linear-gradient(90deg, #1B3B2B 0%, #1B3B2B ${(checkInEnergy / 5) * 100}%, ${isDark ? 'rgba(255,255,255,0.08)' : 'rgba(27,59,43,0.08)'} ${(checkInEnergy / 5) * 100}%, ${isDark ? 'rgba(255,255,255,0.08)' : 'rgba(27,59,43,0.08)'} 100%)`,
+                      borderRadius: 18,
+                      outline: 'none',
+                      cursor: 'pointer',
+                    }}
+                  />
+                  <div className="flex justify-between px-1 mt-1">
+                    {['', '1', '2', '3', '4', '5'].map((n, i) => (
+                      <span key={i} className="text-[9px]" style={{ fontFamily: I, color: c.muted }}>{n}</span>
+                    ))}
                   </div>
                 </div>
 
-                {/* Reflection */}
-                <div className="mb-5">
-                  <p className="text-sm font-semibold mb-1" style={{ fontFamily: F, color: c.forest }}>{todayPrompt}</p>
-                  <textarea
-                    value={checkInReflection}
-                    onChange={e => setCheckInReflection(e.target.value)}
-                    placeholder="Write anything — or leave it blank…"
-                    maxLength={1000}
-                    rows={3}
-                    className="w-full resize-none rounded-2xl px-4 py-3 text-sm outline-none transition-all"
-                    style={{
-                      background: c.surface,
-                      border: `1.5px solid ${c.cardBorder}`,
-                      fontFamily: I,
-                      color: c.forest,
-                      lineHeight: 1.65,
-                    }}
-                  />
-                </div>
+                {/* Reflection — collapsible, optional */}
+                {showReflection ? (
+                  <div className="mb-5">
+                    <p className="text-sm font-semibold mb-1" style={{ fontFamily: F, color: c.forest }}>{todayPrompt}</p>
+                    <textarea
+                      value={checkInReflection}
+                      onChange={e => setCheckInReflection(e.target.value)}
+                      placeholder="Write anything…"
+                      maxLength={1000}
+                      rows={3}
+                      autoFocus
+                      className="w-full resize-none rounded-2xl px-4 py-3 text-sm outline-none transition-all"
+                      style={{
+                        background: c.surface,
+                        border: `1.5px solid ${c.cardBorder}`,
+                        fontFamily: I,
+                        color: c.forest,
+                        lineHeight: 1.65,
+                      }}
+                    />
+                    <button
+                      onClick={() => { setShowReflection(false); setCheckInReflection('') }}
+                      className="text-xs mt-1 transition-opacity hover:opacity-60"
+                      style={{ fontFamily: I, color: c.muted }}
+                    >
+                      Remove note
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setShowReflection(true)}
+                    className="text-xs font-medium mb-5 transition-opacity hover:opacity-60"
+                    style={{ fontFamily: I, color: c.sage }}
+                  >
+                    + Add a reflection (optional)
+                  </button>
+                )}
 
                 {/* Actions */}
                 <div className="flex items-center gap-3">

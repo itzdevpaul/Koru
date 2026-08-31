@@ -46,7 +46,7 @@ const BASE_PRICE_KOBO = 250000 // ₦2,500
 const UNLOCK_PRICE_KOBO = 100000 // ₦1,000 one-time report unlock
 const INTRO_PRICE_KOBO = 100000 // ₦1,000 first-month intro
 
-function calculatePrice(referredBy: boolean, isFirstTime = false): {
+function calculatePrice(referredBy: boolean, isFirstTime = false, promoDiscount = 0): {
   amount: number
   discountPercent: number
   discountReason: string
@@ -55,17 +55,32 @@ function calculatePrice(referredBy: boolean, isFirstTime = false): {
   // Anniversary: September 4 (month is 0-indexed, so September = 8)
   const isAnniversary = now.getMonth() === 8 && now.getDate() === 4
   if (isAnniversary) {
+    const baseDiscount = 50
+    const totalDiscount = Math.min(100, baseDiscount + promoDiscount)
     return {
-      amount: Math.round(BASE_PRICE_KOBO * 0.5),
-      discountPercent: 50,
-      discountReason: 'Happy Anniversary! 50% off Koru Pro',
+      amount: Math.round(BASE_PRICE_KOBO * (1 - totalDiscount / 100)),
+      discountPercent: totalDiscount,
+      discountReason: promoDiscount > 0
+        ? `Happy Anniversary! ${baseDiscount}% + promo ${promoDiscount}% off`
+        : 'Happy Anniversary! 50% off Koru Pro',
     }
   }
   if (isFirstTime) {
+    const baseDiscount = 60
+    const totalDiscount = Math.min(100, baseDiscount + promoDiscount)
     return {
-      amount: INTRO_PRICE_KOBO,
-      discountPercent: 60,
-      discountReason: 'First month intro offer — 60% off',
+      amount: Math.round(BASE_PRICE_KOBO * (1 - totalDiscount / 100)),
+      discountPercent: totalDiscount,
+      discountReason: promoDiscount > 0
+        ? `First month intro ${baseDiscount}% + promo ${promoDiscount}% off`
+        : 'First month intro offer — 60% off',
+    }
+  }
+  if (promoDiscount > 0) {
+    return {
+      amount: Math.round(BASE_PRICE_KOBO * (1 - promoDiscount / 100)),
+      discountPercent: promoDiscount,
+      discountReason: `Promo code — ${promoDiscount}% off`,
     }
   }
   if (referredBy) {
@@ -78,14 +93,30 @@ function calculatePrice(referredBy: boolean, isFirstTime = false): {
   return { amount: BASE_PRICE_KOBO, discountPercent: 0, discountReason: '' }
 }
 
+// ── Promo code helper ─────────────────────────────────────────────────────────
+async function validatePromoCode(code: string): Promise<{ valid: boolean; discountPercent: number; error?: string }> {
+  const cleanCode = safeInviteCode(code)
+  if (!cleanCode || cleanCode.length < 3) return { valid: false, discountPercent: 0, error: 'Invalid promo code format.' }
+  const firestore = getFirestore(getAdminApp())
+  const snap = await firestore.doc(`promoCodes/${cleanCode}`).get()
+  if (!snap.exists) return { valid: false, discountPercent: 0, error: 'Promo code not found.' }
+  const data = snap.data()
+  if (!data?.active) return { valid: false, discountPercent: 0, error: 'This promo code is no longer active.' }
+  if (data.expiresAt) {
+    const expiry = data.expiresAt?.toDate?.() ?? new Date(data.expiresAt)
+    if (expiry < new Date()) return { valid: false, discountPercent: 0, error: 'This promo code has expired.' }
+  }
+  return { valid: true, discountPercent: Number(data.discountPercent ?? 0) }
+}
+
 async function notifyInviter(inviterUid: string, referralCount: number, rewardGranted: boolean): Promise<void> {
   try {
     const firestore = getFirestore(getAdminApp())
 
     // Create a notification document for the inviter
     const message = rewardGranted
-      ? "Your invite code was used! You've reached 100 referrals — 7 days of Pro unlocked! 🎉"
-      : `Your invite code was used! ${referralCount} of 100 referrals — keep inviting to unlock Pro.`
+      ? "Your invite code was used! You've reached 10 referrals — 7 days of Pro unlocked! 🎉"
+      : `Your invite code was used! ${referralCount} of 10 referrals — keep inviting to unlock Pro.`
     await firestore.collection(`users/${inviterUid}/notifications`).add({
       type: 'referral',
       title: 'Your invite code was used! 🎉',
@@ -107,8 +138,8 @@ async function notifyInviter(inviterUid: string, referralCount: number, rewardGr
           notification: {
             title: 'Your invite code was used! 🎉',
             body: rewardGranted
-              ? '100 referrals reached — 7 days of Pro unlocked!'
-              : `${referralCount} of 100 invites — keep going!`,
+              ? '10 referrals reached — 7 days of Pro unlocked!'
+              : `${referralCount} of 10 invites — keep going!`,
           },
           data: { url: '/profile' },
         })
@@ -272,13 +303,23 @@ app.post('/api/subscribe/price', async (req, res) => {
     ])
     const referredBy = Boolean(profileSnap.exists && profileSnap.data()?.referredBy)
     const isFirstTime = !subSnap.exists
-    const price = calculatePrice(referredBy, isFirstTime)
+    const { promoCode } = (req.body ?? {}) as { promoCode?: string }
+    let promoDiscount = 0
+    let promoError: string | undefined
+    if (promoCode) {
+      const promo = await validatePromoCode(promoCode)
+      if (!promo.valid) promoError = promo.error
+      else promoDiscount = promo.discountPercent
+    }
+    const price = calculatePrice(referredBy, isFirstTime, promoDiscount)
     res.json({
       baseAmount: BASE_PRICE_KOBO / 100,
       discountPercent: price.discountPercent,
       finalAmount: price.amount / 100,
       discountReason: price.discountReason,
       unlockAmount: UNLOCK_PRICE_KOBO / 100,
+      promoValid: promoDiscount > 0,
+      promoError,
     })
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unknown error'
@@ -289,7 +330,7 @@ app.post('/api/subscribe/price', async (req, res) => {
 app.post('/api/subscribe/initiate', async (req, res) => {
   try {
     const decoded = await getAuthenticatedUser(req)
-    const { uid, origin } = req.body as { uid: string; origin?: string }
+    const { uid, origin, promoCode } = req.body as { uid: string; origin?: string; promoCode?: string }
     if (!uid || uid !== decoded.uid || !decoded.email) { res.status(403).json({ error: 'Account ownership could not be verified' }); return }
 
     const key = process.env.SQUAD_SECRET_KEY
@@ -303,7 +344,12 @@ app.post('/api/subscribe/initiate', async (req, res) => {
     ])
     const referredBy = Boolean(profileSnap.exists && profileSnap.data()?.referredBy)
     const isFirstTime = !subSnap.exists
-    const price = calculatePrice(referredBy, isFirstTime)
+    let promoDiscount = 0
+    if (promoCode) {
+      const promo = await validatePromoCode(promoCode)
+      if (promo.valid) promoDiscount = promo.discountPercent
+    }
+    const price = calculatePrice(referredBy, isFirstTime, promoDiscount)
 
     const ref = `koru_sub_${uid}_${Date.now()}`
 
@@ -423,11 +469,19 @@ app.post('/api/subscribe/activate', async (req, res) => {
 app.post('/api/unlock/initiate', async (req, res) => {
   try {
     const decoded = await getAuthenticatedUser(req)
-    const { quizId } = req.body as { quizId: string }
+    const { quizId, promoCode } = req.body as { quizId: string; promoCode?: string }
     if (!quizId || !decoded.email) { res.status(400).json({ error: 'quizId is required' }); return }
 
     const key = process.env.SQUAD_SECRET_KEY
     if (!key) { res.status(500).json({ error: 'SQUAD_SECRET_KEY not configured' }); return }
+
+    let unlockAmount = UNLOCK_PRICE_KOBO
+    if (promoCode) {
+      const promo = await validatePromoCode(promoCode)
+      if (promo.valid) {
+        unlockAmount = Math.round(UNLOCK_PRICE_KOBO * (1 - promo.discountPercent / 100))
+      }
+    }
 
     const ref = `koru_unlock_${decoded.uid}_${quizId}_${Date.now()}`
     const safeOrigin = process.env.APP_URL ?? 'https://koru.com.ng'
@@ -441,7 +495,7 @@ app.post('/api/unlock/initiate', async (req, res) => {
       },
       body: JSON.stringify({
         email: decoded.email,
-        amount: UNLOCK_PRICE_KOBO,
+        amount: unlockAmount,
         currency: 'NGN',
         initiate_type: 'inline',
         transaction_ref: ref,
@@ -714,7 +768,6 @@ app.get('/api/admin/users', async (req, res) => {
   }
 })
 
-// ── Admin: verify password (never exposes the secret to the client) ───────────
 // ── Admin: grant Pro to a user ────────────────────────────────────────────────
 app.post('/api/admin/grant-pro', async (req, res) => {
   try {
@@ -821,6 +874,133 @@ app.post('/api/admin/backfill-codes', async (req, res) => {
   }
 })
 
+// ── Admin: create a promo code ─────────────────────────────────────────────────
+app.post('/api/admin/promos/create', async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization
+    if (!authHeader?.startsWith('Bearer ')) { res.status(401).json({ error: 'Unauthorized' }); return }
+    const decoded = await getAuth(getAdminApp()).verifyIdToken(authHeader.slice(7))
+    if (decoded.email !== ADMIN_EMAIL) { res.status(403).json({ error: 'Forbidden' }); return }
+
+    const { code, discountPercent, expiresAt } = req.body as { code: string; discountPercent: number; expiresAt: string }
+    const cleanCode = safeInviteCode(code)
+    if (!cleanCode || cleanCode.length < 3) { res.status(400).json({ error: 'Promo code must be at least 3 characters (A-Z, 0-9).' }); return }
+    if (!discountPercent || discountPercent < 1 || discountPercent > 100) { res.status(400).json({ error: 'Discount must be 1–100%.' }); return }
+    if (!expiresAt) { res.status(400).json({ error: 'Expiration date is required.' }); return }
+
+    const firestore = getFirestore(getAdminApp())
+    const promoRef = firestore.doc(`promoCodes/${cleanCode}`)
+    const existing = await promoRef.get()
+    if (existing.exists) { res.status(409).json({ error: 'A promo code with this name already exists.' }); return }
+
+    const expiry = new Date(expiresAt)
+    expiry.setHours(23, 59, 59, 999)
+
+    await promoRef.set({
+      code: cleanCode,
+      discountPercent,
+      expiresAt: Timestamp.fromDate(expiry),
+      active: true,
+      createdAt: new Date(),
+      createdBy: decoded.email,
+    })
+    res.json({ ok: true, code: cleanCode, discountPercent, expiresAt: expiry.toISOString() })
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Unknown error'
+    console.error('[Koru] /api/admin/promos/create error:', msg)
+    res.status(500).json({ error: msg })
+  }
+})
+
+// ── Admin: list all promo codes ────────────────────────────────────────────────
+app.get('/api/admin/promos', async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization
+    if (!authHeader?.startsWith('Bearer ')) { res.status(401).json({ error: 'Unauthorized' }); return }
+    const decoded = await getAuth(getAdminApp()).verifyIdToken(authHeader.slice(7))
+    if (decoded.email !== ADMIN_EMAIL) { res.status(403).json({ error: 'Forbidden' }); return }
+
+    const firestore = getFirestore(getAdminApp())
+    const snap = await firestore.collection('promoCodes').orderBy('createdAt', 'desc').get()
+    const promos = snap.docs.map(d => {
+      const data = d.data()
+      return {
+        code: d.id,
+        discountPercent: data.discountPercent ?? 0,
+        expiresAt: data.expiresAt?.toDate?.()?.toISOString() ?? null,
+        active: data.active ?? false,
+        createdAt: data.createdAt?.toDate?.()?.toISOString() ?? null,
+      }
+    })
+    res.json(promos)
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Unknown error'
+    console.error('[Koru] /api/admin/promos error:', msg)
+    res.status(500).json({ error: msg })
+  }
+})
+
+// ── Admin: toggle / delete promo code ──────────────────────────────────────────
+app.post('/api/admin/promos/toggle', async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization
+    if (!authHeader?.startsWith('Bearer ')) { res.status(401).json({ error: 'Unauthorized' }); return }
+    const decoded = await getAuth(getAdminApp()).verifyIdToken(authHeader.slice(7))
+    if (decoded.email !== ADMIN_EMAIL) { res.status(403).json({ error: 'Forbidden' }); return }
+
+    const { code } = req.body as { code: string }
+    const cleanCode = safeInviteCode(code)
+    if (!cleanCode) { res.status(400).json({ error: 'code required' }); return }
+
+    const firestore = getFirestore(getAdminApp())
+    const promoRef = firestore.doc(`promoCodes/${cleanCode}`)
+    const snap = await promoRef.get()
+    if (!snap.exists) { res.status(404).json({ error: 'Promo code not found' }); return }
+    await promoRef.set({ active: !snap.data()?.active }, { merge: true })
+    res.json({ ok: true, active: !snap.data()?.active })
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Unknown error'
+    res.status(500).json({ error: msg })
+  }
+})
+
+app.post('/api/admin/promos/delete', async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization
+    if (!authHeader?.startsWith('Bearer ')) { res.status(401).json({ error: 'Unauthorized' }); return }
+    const decoded = await getAuth(getAdminApp()).verifyIdToken(authHeader.slice(7))
+    if (decoded.email !== ADMIN_EMAIL) { res.status(403).json({ error: 'Forbidden' }); return }
+
+    const { code } = req.body as { code: string }
+    const cleanCode = safeInviteCode(code)
+    if (!cleanCode) { res.status(400).json({ error: 'code required' }); return }
+
+    await getFirestore(getAdminApp()).doc(`promoCodes/${cleanCode}`).delete()
+    res.json({ ok: true })
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Unknown error'
+    res.status(500).json({ error: msg })
+  }
+})
+
+// ── User: validate a promo code ───────────────────────────────────────────────
+app.post('/api/promos/validate', async (req, res) => {
+  try {
+    const decoded = await getAuthenticatedUser(req)
+    const { code } = req.body as { code: string }
+    if (!code) { res.status(400).json({ error: 'Promo code is required.' }); return }
+    const promo = await validatePromoCode(code)
+    res.json({
+      valid: promo.valid,
+      discountPercent: promo.discountPercent,
+      error: promo.error,
+    })
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Unknown error'
+    res.status(msg === 'Authentication required' ? 401 : 500).json({ error: msg })
+  }
+})
+
 // ── Funnel event (sendBeacon endpoint) ───────────────────────────────────────
 app.post('/api/funnel-event', express.json(), (req, res) => {
   try {
@@ -837,15 +1017,6 @@ app.post('/api/funnel-event', express.json(), (req, res) => {
   } catch {
     res.status(500).json({ error: 'Could not log event' })
   }
-})
-
-app.post('/api/admin/login', (req, res) => {
-  const { password } = req.body as { password?: string }
-  const adminKey = process.env.ADMIN_PASSWORD
-  if (!adminKey || !password || password !== adminKey) {
-    res.status(401).json({ error: 'Unauthorized' }); return
-  }
-  res.json({ ok: true })
 })
 
 app.get('/api/health', (_req, res) => res.json({ status: 'ok' }))
@@ -960,12 +1131,38 @@ async function maybeSendDailyPush(): Promise<void> {
       const messages = await Promise.all(batch.map(async ({ profileDoc, token }) => {
         const profileData = profileDoc.data()
         const firstName = String(profileData.displayName ?? '').split(' ')[0] || 'there'
+        const uid = profileDoc.ref.parent.parent?.id
         const hasCheckedInToday = profileData.lastActive === dateKey
+
+        // ── Adaptive nudge: check recent check-ins for low-energy pattern ──
+        let adaptiveTitle: string | null = null
+        let adaptiveBody: string | null = null
+        if (uid) {
+          try {
+            const twoDaysAgo = new Date()
+            twoDaysAgo.setDate(twoDaysAgo.getDate() - 2)
+            const twoDaysAgoKey = twoDaysAgo.toISOString().split('T')[0]
+            const yesterdayKey = new Date(Date.now() - 86400000).toISOString().split('T')[0]
+            const recentSnap = await firestore
+              .collection(`users/${uid}/checkins`)
+              .where(FieldPath.documentId(), 'in', [yesterdayKey, twoDaysAgoKey])
+              .get()
+            const recentCheckIns = recentSnap.docs.map(d => d.data() as { energy?: number; mood?: string })
+            const lowEnergyDays = recentCheckIns.filter(c => Number(c.energy ?? 0) <= 1).length
+            if (lowEnergyDays >= 2) {
+              adaptiveTitle = `Hey ${firstName}, let's ground together 🌿`
+              adaptiveBody = `You've been running on empty. Try this: feet on the floor, 4 slow breaths. That's it. You don't have to do more today.`
+            }
+          } catch { /* non-critical */ }
+        }
 
         // Time-aware, empathetic message
         let title: string
         let body: string
-        if (hasCheckedInToday) {
+        if (adaptiveTitle) {
+          title = adaptiveTitle
+          body = adaptiveBody!
+        } else if (hasCheckedInToday) {
           title = 'Thanks for showing up today 🌿'
           body = `${firstName}, you checked in today. Come back when you're ready to reflect more.`
         } else if (hour >= 19) {

@@ -160,3 +160,39 @@ input[type="submit"] {
 input[type="email"] {
   min-height: 44px;
 }
+
+/* ── Energy slider ── */
+.koru-energy-slider {
+  -webkit-appearance: none;
+  appearance: none;
+}
+.koru-energy-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #1B3B2B;
+  border: 3px solid #FBF9F5;
+  box-shadow: 0 2px 8px rgba(27,59,43,0.3);
+  cursor: pointer;
+  transition: transform 0.15s;
+}
+.koru-energy-slider::-webkit-slider-thumb:active {
+  transform: scale(1.15);
+}
+.koru-energy-slider::-moz-range-thumb {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #1B3B2B;
+  border: 3px solid #FBF9F5;
+  box-shadow: 0 2px 8px rgba(27,59,43,0.3);
+  cursor: pointer;
+}
+[data-theme="dark"] .koru-energy-slider::-webkit-slider-thumb {
+  border-color: #0E1612;
+}
+[data-theme="dark"] .koru-energy-slider::-moz-range-thumb {
+  border-color: #0E1612;
+}

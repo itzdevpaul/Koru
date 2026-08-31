@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
@@ -153,6 +153,20 @@ export default function Quiz() {
   }
 
   const deepReport = result ? getDeepReport(quiz.id, result.id) : null
+
+  // Compute match percentage for paywall preview
+  const matchPercent = useMemo(() => {
+    if (!result || !quiz) return 0
+    const totals: Record<string, number> = {}
+    quiz.results.forEach(r => { totals[r.id] = 0 })
+    for (const [qid, oid] of Object.entries(answers)) {
+      const q = quiz.questions.find(qx => qx.id === qid)
+      const opt = q?.options.find(o => o.id === oid)
+      if (opt) for (const [rid, s] of Object.entries(opt.scores)) totals[rid] = (totals[rid] ?? 0) + s
+    }
+    const total = Object.values(totals).reduce((a, b) => a + b, 0)
+    return total > 0 ? Math.round((totals[result.id] ?? 0) / total * 100) : 0
+  }, [result, quiz, answers])
 
   return (
     <div className="min-h-screen flex flex-col" style={{ background: c.bg, transition: 'background 0.25s' }}>
@@ -345,6 +359,21 @@ export default function Quiz() {
                 ) : (
                   /* ── Paywall: teaser + unlock CTA ── */
                   <div className="text-left">
+                    {/* Match percentage teaser */}
+                    {matchPercent > 0 && (
+                      <div
+                        className="rounded-2xl px-5 py-4 mb-4 text-center"
+                        style={{ background: isDark ? 'rgba(224,122,95,0.08)' : 'rgba(224,122,95,0.06)', border: '1px solid rgba(224,122,95,0.15)' }}
+                      >
+                        <p className="text-2xl font-bold mb-0.5" style={{ fontFamily: F, color: '#E07A5F' }}>
+                          {matchPercent}% match
+                        </p>
+                        <p className="text-xs leading-relaxed" style={{ fontFamily: I, color: c.body }}>
+                          You match {matchPercent}% with <strong style={{ color: c.forest }}>{result.title}</strong>{quiz.mature ? ' attachment' : ''} — unlock Pro to read your complete profile.
+                        </p>
+                      </div>
+                    )}
+
                     {/* Preview snippet (first 2 sentences — not blurred, creates curiosity gap) */}
                     <p className="text-sm leading-relaxed mb-4" style={{ fontFamily: I, color: c.body }}>
                       {result.description.split('. ').slice(0, 2).join('. ')}...

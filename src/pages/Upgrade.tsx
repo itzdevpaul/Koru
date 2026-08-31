@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
 import { useSubscription } from '../context/SubscriptionContext'
-import { getPricing, type Pricing } from '../firebase'
+import { getPricing, validatePromoCode, type Pricing } from '../firebase'
 import { resetFunnelTracking, trackUpgradePageView, trackUpgradeScroll, trackPriceSeen, trackCtaClick, trackBounce } from '../utils/funnelEvents'
 import KoruLogo from '../components/KoruLogo'
 
@@ -19,6 +19,9 @@ export default function Upgrade() {
   const [error, setError] = useState('')
   const [pricing, setPricing] = useState<Pricing | null>(null)
   const priceRef = useRef<HTMLDivElement>(null)
+  const [promoInput, setPromoInput] = useState('')
+  const [promoChecking, setPromoChecking] = useState(false)
+  const [promoApplied, setPromoApplied] = useState('')
 
   useEffect(() => {
     if (!user) return
@@ -49,6 +52,29 @@ export default function Upgrade() {
     return () => observer.disconnect()
   }, [pricing])
 
+  async function handleApplyPromo() {
+    if (!user || !promoInput.trim()) return
+    setPromoChecking(true)
+    setError('')
+    try {
+      const result = await validatePromoCode(promoInput)
+      if (result.valid) {
+        setPromoApplied(promoInput.trim().toUpperCase())
+        const newPricing = await getPricing(promoInput.trim().toUpperCase())
+        setPricing(newPricing)
+      } else {
+        setError(result.error ?? 'Invalid promo code.')
+        setPromoApplied('')
+        const resetPricing = await getPricing()
+        setPricing(resetPricing)
+      }
+    } catch {
+      setError('Could not validate promo code.')
+    } finally {
+      setPromoChecking(false)
+    }
+  }
+
   async function handleSubscribe() {
     if (!user?.email) return
     trackCtaClick(pricing?.finalAmount)
@@ -62,7 +88,7 @@ export default function Upgrade() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${await user.getIdToken()}`,
         },
-        body: JSON.stringify({ uid: user.uid, email: user.email, origin: window.location.origin }),
+        body: JSON.stringify({ uid: user.uid, email: user.email, origin: window.location.origin, ...(promoApplied ? { promoCode: promoApplied } : {}) }),
       })
       const data = await res.json()
       if (!res.ok || !data.checkout_url) {
@@ -171,6 +197,50 @@ export default function Upgrade() {
               </li>
             ))}
           </ul>
+
+          {/* Promo code */}
+          {!isPro && (
+            <div className="mb-6">
+              {promoApplied ? (
+                <div className="flex items-center justify-between px-4 py-3 rounded-2xl" style={{ background: 'rgba(162,191,166,0.15)', border: '1px solid rgba(162,191,166,0.3)' }}>
+                  <span className="text-sm font-semibold" style={{ fontFamily: I, color: '#3a6b4a' }}>
+                    ✓ Promo "{promoApplied}" applied — {pricing?.discountPercent}% off
+                  </span>
+                  <button
+                    onClick={async () => {
+                      setPromoApplied('')
+                      setPromoInput('')
+                      const resetPricing = await getPricing()
+                      setPricing(resetPricing)
+                    }}
+                    className="text-xs transition-opacity hover:opacity-60"
+                    style={{ fontFamily: I, color: c.muted }}
+                  >
+                    Remove
+                  </button>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={promoInput}
+                    onChange={e => setPromoInput(e.target.value.toUpperCase())}
+                    placeholder="Promo code"
+                    className="flex-1 py-2.5 px-4 rounded-2xl text-sm outline-none uppercase"
+                    style={{ fontFamily: I, background: c.surface, border: `1.5px solid ${c.cardBorder}`, color: c.forest }}
+                  />
+                  <button
+                    onClick={handleApplyPromo}
+                    disabled={!promoInput.trim() || promoChecking}
+                    className="px-4 py-2.5 rounded-2xl text-sm font-semibold text-white transition-all hover:opacity-90 disabled:opacity-40"
+                    style={{ fontFamily: F, background: '#1B3B2B' }}
+                  >
+                    {promoChecking ? '…' : 'Apply'}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* CTA */}
           {isPro ? (

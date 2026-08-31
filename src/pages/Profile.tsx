@@ -421,7 +421,7 @@ export default function Profile() {
                 Your permanent invite code
               </p>
               <p className="text-xs leading-relaxed" style={{ fontFamily: I, color: c.body }}>
-                Share your code — invite 100 friends who create accounts and unlock 7 days of Koru Pro. You'll be notified each time someone uses it.
+                Share your code — invite 10 friends who create accounts and unlock 7 days of Koru Pro. You'll be notified each time someone uses it.
               </p>
             </div>
             <span className="text-xl" aria-hidden="true">🎁</span>
@@ -432,18 +432,18 @@ export default function Profile() {
             <>
               <div className="flex items-center justify-between mb-2">
                 <span className="text-xs font-semibold" style={{ fontFamily: I, color: c.forest }}>
-                  {referralRewardGranted ? 'Reward unlocked' : `${Math.min(referralCount, 100)} of 100 invites`}
+                  {referralRewardGranted ? 'Reward unlocked' : `${Math.min(referralCount, 10)} of 10 invites`}
                 </span>
                 <span className="text-xs" style={{ fontFamily: I, color: c.muted }}>
-                  {referralRewardGranted ? '7 days added to Pro' : `${Math.max(0, 100 - referralCount)} to go`}
+                  {referralRewardGranted ? '7 days added to Pro' : `${Math.max(0, 10 - referralCount)} to go`}
                 </span>
               </div>
-              {/* Progress bar (replaces individual dots — 100 is too many for dots) */}
+              {/* Progress bar */}
               <div className="h-2 rounded-full mb-4 overflow-hidden" style={{ background: c.surface }}>
                 <div
                   className="h-full rounded-full transition-all duration-500"
                   style={{
-                    width: `${Math.min((referralCount / 100) * 100, 100)}%`,
+                    width: `${Math.min((referralCount / 10) * 100, 100)}%`,
                     background: referralRewardGranted ? '#1B3B2B' : 'linear-gradient(90deg, #1B3B2B, #A2BFA6)',
                   }}
                 />
