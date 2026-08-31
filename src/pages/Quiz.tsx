@@ -6,7 +6,8 @@ import { useSubscription } from '../context/SubscriptionContext'
 import { saveQuizResult, saveMoodMatch, initiateReportUnlock } from '../firebase'
 import { getQuizById, scoreQuiz, type QuizResultType } from '../data/quizzes'
 import { getDeepReport } from '../data/deepReports'
-import { generateQuizShareImage, shareOrDownloadImage } from '../utils/shareImage'
+import { shareOrDownloadImage } from '../utils/shareImage'
+import { generateInsightShareImage } from '../utils/shareCards'
 
 type Phase = 'intro' | 'question' | 'result'
 
@@ -101,15 +102,19 @@ export default function Quiz() {
   }
 
   async function handleShare() {
-    if (!result || !quiz) return
+    if (!result || !quiz || !user) return
     setSharingImage(true)
     setShareMsg('')
     try {
-      const blob = await generateQuizShareImage({
-        emoji: result.emoji,
+      const handle = (user.displayName || user.email?.split('@')[0] || 'you')
+        .toLowerCase().replace(/[^a-z0-9]/g, '')
+      const blob = await generateInsightShareImage({
         title: result.title,
-        tagline: result.tagline,
+        emoji: result.emoji,
+        traits: result.traits,
         quizTitle: quiz.title,
+        userHandle: handle,
+        uid: user.uid,
       })
       const outcome = await shareOrDownloadImage(blob, `koru-${quiz.id}-result.png`, `My Koru result: ${result.title}`)
       if (outcome === 'downloaded') setShareMsg('Image saved!')

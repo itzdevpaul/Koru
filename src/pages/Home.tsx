@@ -4,7 +4,8 @@ import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
 import { useSubscription } from '../context/SubscriptionContext'
 import { logOut, getQuizResults, updateStreak, getUserProfile, updateUserProfile, sendReminderEmail, sendWeeklyWrapUp, saveCheckIn, getTodayCheckIn, getTodayPrompt, MOOD_OPTIONS, getActiveAd, saveIntention, markIntentionSurfaced, getRecentCheckIns, getRecentMoodMatches, type SavedQuizResult, type CheckIn, type MoodKey, type Ad, type UserProfile, type MoodMatch } from '../firebase'
-import { generateCheckInShareImage, shareOrDownloadImage } from '../utils/shareImage'
+import { shareOrDownloadImage } from '../utils/shareImage'
+import { generateDailyRitualImage } from '../utils/shareCards'
 import { quizzes, insightCombinations } from '../data/quizzes'
 import AdModal from '../components/AdModal'
 import PatternMirrorCard from '../components/PatternMirrorCard'
@@ -211,13 +212,45 @@ export default function Home() {
     setCheckInShareMsg('')
     try {
       const moodOpt = MOOD_OPTIONS.find(m => m.key === checkIn.mood)
-      const today = new Date().toLocaleDateString('en-NG', { weekday: 'long', month: 'long', day: 'numeric' })
-      const blob = await generateCheckInShareImage({
+      const today = new Date().toLocaleDateString('en-NG', { month: 'long', day: 'numeric', year: 'numeric' })
+
+      // Build 7-day trend data from recent check-ins
+      const moodScoreMap: Record<string, number> = { rough: 1, low: 2, okay: 3, good: 4, thriving: 5 }
+      const checkInMap = new Map<string, CheckIn>()
+      for (const ci of patternCheckIns) {
+        checkInMap.set(ci.date, ci)
+      }
+      // Include today's check-in
+      const todayKey = new Date().toISOString().split('T')[0]
+      checkInMap.set(todayKey, checkIn)
+
+      const trendData: Array<{ mood: number; energy: number } | null> = []
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date()
+        d.setDate(d.getDate() - i)
+        const key = d.toISOString().split('T')[0]
+        const ci = checkInMap.get(key)
+        if (ci) {
+          trendData.push({ mood: moodScoreMap[ci.mood] ?? 3, energy: ci.energy })
+        } else {
+          trendData.push(null)
+        }
+      }
+
+      const handle = (user?.displayName || user?.email?.split('@')[0] || 'you')
+        .toLowerCase().replace(/[^a-z0-9]/g, '')
+
+      const blob = await generateDailyRitualImage({
         moodEmoji: moodOpt?.emoji ?? '🙂',
         moodLabel: moodOpt?.label ?? checkIn.mood,
+        moodScore: moodScoreMap[checkIn.mood] ?? 3,
         energy: checkIn.energy,
-        reflection: checkIn.reflection,
+        gratitude: checkIn.reflection,
+        streak,
+        personalBest: Math.max(streak, Number(localStorage.getItem('koru-best-streak') || 0)) || streak,
         date: today,
+        trendData,
+        userHandle: handle,
       })
       const outcome = await shareOrDownloadImage(blob, 'koru-checkin.png', 'My Koru daily check-in')
       if (outcome === 'downloaded') setCheckInShareMsg('Image saved!')
