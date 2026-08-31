@@ -115,8 +115,8 @@ async function notifyInviter(inviterUid: string, referralCount: number, rewardGr
 
     // Create a notification document for the inviter
     const message = rewardGranted
-      ? "Your invite code was used! You've reached 100 referrals — 7 days of Pro unlocked! 🎉"
-      : `Your invite code was used! ${referralCount} of 100 referrals — keep inviting to unlock Pro.`
+      ? "Your invite code was used! You've reached 10 referrals — 7 days of Pro unlocked! 🎉"
+      : `Your invite code was used! ${referralCount} of 10 referrals — keep inviting to unlock Pro.`
     await firestore.collection(`users/${inviterUid}/notifications`).add({
       type: 'referral',
       title: 'Your invite code was used! 🎉',
@@ -138,8 +138,8 @@ async function notifyInviter(inviterUid: string, referralCount: number, rewardGr
           notification: {
             title: 'Your invite code was used! 🎉',
             body: rewardGranted
-              ? '100 referrals reached — 7 days of Pro unlocked!'
-              : `${referralCount} of 100 invites — keep going!`,
+              ? '10 referrals reached — 7 days of Pro unlocked!'
+              : `${referralCount} of 10 invites — keep going!`,
           },
           data: { url: '/profile' },
         })
