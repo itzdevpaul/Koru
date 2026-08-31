@@ -11,11 +11,18 @@ let _adminApp: App | null = null
 function getAdminApp(): App {
   if (_adminApp) return _adminApp
   if (getApps().length) { _adminApp = getApps()[0]; return _adminApp }
-  const raw = process.env.FIREBASE_SERVICE_ACCOUNT
+  const raw = process.env.FIREBASE_SERVICE_ACCOUNT?.trim()
   if (!raw) throw new Error('FIREBASE_SERVICE_ACCOUNT is not set')
-  const credential = JSON.parse(
-    raw.startsWith('{') ? raw : Buffer.from(raw, 'base64').toString('utf8')
-  )
+  let credential: Record<string, unknown>
+  try {
+    let parsed: unknown = JSON.parse(raw.startsWith('{') ? raw : Buffer.from(raw, 'base64').toString('utf8'))
+    if (typeof parsed === 'string') parsed = JSON.parse(parsed)
+    if (!parsed || typeof parsed !== 'object') throw new Error('invalid shape')
+    credential = parsed as Record<string, unknown>
+    if (typeof credential.private_key === 'string') credential.private_key = credential.private_key.replace(/\\n/g, '\n')
+  } catch {
+    throw new Error('FIREBASE_SERVICE_ACCOUNT is not a valid Firebase Admin service account')
+  }
   _adminApp = initializeApp({ credential: cert(credential) })
   return _adminApp
 }
@@ -1025,15 +1032,17 @@ app.post('/api/promos/validate', async (req, res) => {
   }
 })
 
-// ── Funnel event (sendBeacon endpoint) ───────────────────────────────────────
-app.post('/api/funnel-event', express.json(), (req, res) => {
+// ── Funnel event ───────────────────────────────────────────────────────────────
+app.post('/api/funnel-event', async (req, res) => {
   try {
-    const { type, uid, page } = req.body as { type: string; uid: string; page: string }
-    if (!type || !uid) { res.status(400).json({ error: 'type and uid required' }); return }
+    const decoded = await getAuthenticatedUser(req)
+    const { type, page } = req.body as { type: string; page: string }
+    const allowedTypes = new Set(['upgrade_page_view', 'upgrade_scroll_50', 'upgrade_scroll_100', 'upgrade_price_seen', 'upgrade_cta_click', 'upgrade_bounce'])
+    if (!type || !allowedTypes.has(type)) { res.status(400).json({ error: 'Invalid event type' }); return }
     // Best-effort write — don't block the response
     void getFirestore(getAdminApp()).collection('funnelEvents').add({
       type,
-      uid,
+      uid: decoded.uid,
       page: page ?? '',
       timestamp: new Date(),
     })
@@ -1045,7 +1054,11 @@ app.post('/api/funnel-event', express.json(), (req, res) => {
 
 app.get('/api/health', (_req, res) => res.json({ status: 'ok' }))
 
-app.listen(PORT, () => console.log(`[Koru API] Running on port ${PORT}`))
+export { app }
+
+if (process.env.VERCEL !== '1') {
+  app.listen(PORT, () => console.log(`[Koru API] Running on port ${PORT}`))
+}
 
 // ── Daily push scheduler ─────────────────────────────────────────────────────
 // Enabled only in the production environment so local development never sends
