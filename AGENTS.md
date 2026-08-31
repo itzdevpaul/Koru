@@ -8,6 +8,7 @@ Run with: `docker compose -f docker-compose.base44.yml up -d` (preview on host p
 - API secrets are lazy: the server boots without `FIREBASE_SERVICE_ACCOUNT`, `RESEND_API_KEY`, `SQUAD_SECRET_KEY`; only the routes using them fail.
 - `vite.config.ts` bridges `VITE_*` from `process.env` into `import.meta.env`, so those vars must be in the service env, not only in a `.env` file.
 - Two source files were missing from the import and were added: `src/utils/sanitize.ts` and `src/components/KoruLoader.tsx`.
+- `src/firebase.ts` had a stray trailing `}` (after `withTimeout`) that broke esbuild's dependency scan; removed it.
 - Health check: `curl localhost:3001/api/health` → `{"status":"ok"}`.
 
 ## Monetization model (teaser hook + one-time unlock)
