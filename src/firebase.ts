@@ -160,6 +160,7 @@ export interface UserProfile {
   referralRewardGranted?: boolean
   referredBy?: string
   referredAt?: string
+  streakFreezesUsed?: Record<string, number>  // { "2026-08": 1 }
 }
 
 export async function saveUserProfile(uid: string, data: UserProfile): Promise<void> {
@@ -273,6 +274,8 @@ function yesterdayISO(): string {
   return d.toISOString().split('T')[0]
 }
 
+const FREEZES_PER_MONTH = 2
+
 /** Call once on home page mount. Returns the current streak count. */
 export async function updateStreak(uid: string): Promise<number> {
   assertOwnUid(uid)
@@ -289,6 +292,29 @@ export async function updateStreak(uid: string): Promise<number> {
     return profile.streak ?? 1
   } else if (lastActive === yesterday) {
     newStreak = (profile.streak ?? 1) + 1
+  } else if (lastActive) {
+    // Gap detected — check if streak freezes are available
+    const dayDiff = Math.floor((new Date(today).getTime() - new Date(lastActive).getTime()) / 86_400_000)
+    const missedDays = dayDiff - 1 // yesterday = 0 missed, day before = 1 missed, etc.
+    const currentMonth = today.slice(0, 7)
+    const freezesUsedThisMonth = profile.streakFreezesUsed?.[currentMonth] ?? 0
+    const freezesAvailable = FREEZES_PER_MONTH - freezesUsedThisMonth
+
+    if (missedDays > 0 && missedDays <= freezesAvailable) {
+      // Consume freezes and keep the streak going
+      newStreak = (profile.streak ?? 1) + 1
+      try {
+        await updateDoc(doc(db, 'users', uid, 'profile', 'main'), {
+          streak: newStreak,
+          lastActive: today,
+          [`streakFreezesUsed.${currentMonth}`]: freezesUsedThisMonth + missedDays,
+          updatedAt: serverTimestamp(),
+        })
+      } catch { /* non-critical */ }
+      return newStreak
+    }
+    // Not enough freezes — reset
+    newStreak = 1
   } else {
     newStreak = 1
   }
@@ -303,6 +329,15 @@ export async function updateStreak(uid: string): Promise<number> {
     // Fail silently — streak update is non-critical
   }
   return newStreak
+}
+
+/** Returns the number of streak freezes remaining this month. */
+export async function getStreakFreezesRemaining(uid: string): Promise<number> {
+  assertOwnUid(uid)
+  const profile = await getUserProfile(uid)
+  const currentMonth = todayISO().slice(0, 7)
+  const used = profile?.streakFreezesUsed?.[currentMonth] ?? 0
+  return Math.max(0, FREEZES_PER_MONTH - used)
 }
 
 // ── Quiz Results ────────────────────────────────────────────────────────────
@@ -461,8 +496,10 @@ export async function getUnlockedReports(uid: string): Promise<string[]> {
   return snap.docs.map(d => d.id)
 }
 
-export async function initiateReportUnlock(quizId: string): Promise<{ checkout_url: string; ref: string }> {
-  const response = await authenticatedApi('/unlock/initiate', { quizId: sanitizeText(quizId, 100) })
+export async function initiateReportUnlock(quizId: string, promoCode?: string): Promise<{ checkout_url: string; ref: string }> {
+  const body: Record<string, string> = { quizId: sanitizeText(quizId, 100) }
+  if (promoCode) body.promoCode = sanitizeInviteCode(promoCode)
+  const response = await authenticatedApi('/unlock/initiate', body)
   const data = await response.json() as { checkout_url?: string; ref?: string; error?: string }
   if (!response.ok || !data.checkout_url) throw new Error(data.error ?? 'Could not start payment.')
   return { checkout_url: data.checkout_url, ref: data.ref ?? '' }
@@ -481,10 +518,12 @@ export interface Pricing {
   finalAmount: number      // in naira
   discountReason: string
   unlockAmount: number    // one-time report unlock price in naira
+  promoValid?: boolean
+  promoError?: string
 }
 
-export async function getPricing(): Promise<Pricing> {
-  const response = await authenticatedApi('/subscribe/price')
+export async function getPricing(promoCode?: string): Promise<Pricing> {
+  const response = await authenticatedApi('/subscribe/price', promoCode ? { promoCode } : undefined)
   const data = await response.json() as Partial<Pricing> & { error?: string }
   if (!response.ok) throw new Error(data.error ?? 'Could not fetch pricing.')
   return {
@@ -493,7 +532,63 @@ export async function getPricing(): Promise<Pricing> {
     finalAmount: Number(data.finalAmount ?? 2500),
     discountReason: String(data.discountReason ?? ''),
     unlockAmount: Number(data.unlockAmount ?? 1000),
+    promoValid: data.promoValid,
+    promoError: data.promoError,
   }
+}
+
+// ── Promo codes ──────────────────────────────────────────────────────────────
+
+export interface PromoCode {
+  code: string
+  discountPercent: number
+  expiresAt: string | null
+  active: boolean
+  createdAt: string | null
+}
+
+export async function validatePromoCode(code: string): Promise<{ valid: boolean; discountPercent: number; error?: string }> {
+  const response = await authenticatedApi('/promos/validate', { code: sanitizeInviteCode(code) })
+  const data = await response.json() as { valid?: boolean; discountPercent?: number; error?: string }
+  return {
+    valid: Boolean(data.valid),
+    discountPercent: Number(data.discountPercent ?? 0),
+    error: data.error,
+  }
+}
+
+export async function getAdminPromos(token: string): Promise<PromoCode[]> {
+  const response = await fetch('/api/admin/promos', { headers: { Authorization: `Bearer ${token}` } })
+  if (!response.ok) throw new Error('Could not fetch promo codes')
+  return response.json()
+}
+
+export async function createAdminPromo(token: string, code: string, discountPercent: number, expiresAt: string): Promise<void> {
+  const response = await fetch('/api/admin/promos/create', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ code, discountPercent, expiresAt }),
+  })
+  const data = await response.json()
+  if (!response.ok) throw new Error(data.error ?? 'Could not create promo code')
+}
+
+export async function toggleAdminPromo(token: string, code: string): Promise<void> {
+  const response = await fetch('/api/admin/promos/toggle', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ code }),
+  })
+  if (!response.ok) throw new Error('Could not toggle promo code')
+}
+
+export async function deleteAdminPromo(token: string, code: string): Promise<void> {
+  const response = await fetch('/api/admin/promos/delete', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ code }),
+  })
+  if (!response.ok) throw new Error('Could not delete promo code')
 }
 
 // ── Notifications (referral alerts etc.) ─────────────────────────────────────

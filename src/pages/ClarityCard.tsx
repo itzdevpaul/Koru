@@ -6,6 +6,7 @@ import { useSubscription } from '../context/SubscriptionContext'
 import { getClarityMetrics, markClarityCardSeen, type ClarityMetrics } from '../firebase'
 import { generateClarityDeltaImage, shareOrDownloadImage } from '../utils/shareImage'
 import KoruLogo from '../components/KoruLogo'
+import RadarChart from '../components/RadarChart'
 
 const F = "'Plus Jakarta Sans', sans-serif"
 const I = "'Inter', sans-serif"
@@ -151,6 +152,14 @@ export default function ClarityCardPage() {
 
   const m = metrics!
 
+  // Radar chart data: compare Day 1 vs Day 30 across key axes
+  const radarData = [
+    { label: 'Mood', start: m.moodStart, end: m.moodEnd },
+    { label: 'Energy', start: m.energyStart, end: m.energyEnd },
+    { label: 'Clarity', start: (m.moodStart + m.energyStart) / 2, end: (m.moodEnd + m.energyEnd) / 2 },
+    { label: 'Stability', start: Math.min(m.moodStart, m.energyStart), end: Math.min(m.moodEnd, m.energyEnd) },
+  ]
+
   // ── Metric colour helpers ──
   const metricBg   = (n: number) => n >= 0 ? 'rgba(162,191,166,0.2)' : 'rgba(224,122,95,0.12)'
   const metricCol  = (n: number) => n >= 0 ? '#1B3B2B' : '#c0513a'
@@ -192,7 +201,7 @@ export default function ClarityCardPage() {
       <main className="max-w-lg mx-auto px-5 py-10 pb-16">
         <p className="text-xs font-semibold uppercase tracking-widest text-center mb-6"
           style={{ fontFamily: I, color: c.sage }}>
-          30-Day Transformation
+          Monthly Mindset Report
         </p>
 
         {/* ── The Card ── */}
@@ -202,15 +211,30 @@ export default function ClarityCardPage() {
           <div className="px-7 pt-8 pb-7" style={{ background: 'linear-gradient(135deg, #1B3B2B 0%, #2a5240 100%)' }}>
             <p className="text-xs font-semibold uppercase tracking-widest mb-2"
               style={{ fontFamily: I, color: '#A2BFA6' }}>
-              Growth Snapshot
+              Monthly Mindset Report
             </p>
             <h1 className="text-2xl sm:text-3xl font-bold leading-snug mb-2"
               style={{ fontFamily: F, color: '#fff' }}>
-              Your {m.monthName} Snapshot 🌿
+              Your {m.monthName} Mindset Report 🌿
             </h1>
             <p className="text-sm" style={{ fontFamily: I, color: 'rgba(255,255,255,0.55)' }}>
-              Based on {m.checkInCount} check-in{m.checkInCount !== 1 ? 's' : ''} this month
+              Day 1 vs Day 30 · Based on {m.checkInCount} check-in{m.checkInCount !== 1 ? 's' : ''} this month
             </p>
+          </div>
+
+          {/* Radar chart — Day 1 vs Day 30 comparison */}
+          <div className="px-5 py-6 flex flex-col items-center" style={{ background: '#fff' }}>
+            <RadarChart data={radarData} />
+            <div className="flex items-center gap-4 mt-3">
+              <div className="flex items-center gap-1.5">
+                <div style={{ width: 12, height: 2, background: '#A2BFA6', borderTop: '2px dashed #A2BFA6' }} />
+                <span className="text-xs" style={{ fontFamily: I, color: '#7a9a86' }}>Day 1</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div style={{ width: 12, height: 2, background: '#1B3B2B' }} />
+                <span className="text-xs" style={{ fontFamily: I, color: '#1B3B2B' }}>Day 30</span>
+              </div>
+            </div>
           </div>
 
           {/* Card body — white */}

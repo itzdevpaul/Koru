@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { useTheme } from '../context/ThemeContext'
-import { auth, googleProvider, signOut, onAuthStateChanged, getAllAds, saveAd, toggleAdActive, deleteAd, type Ad } from '../firebase'
+import { auth, googleProvider, signOut, onAuthStateChanged, getAllAds, saveAd, toggleAdActive, deleteAd, getAdminPromos, createAdminPromo, toggleAdminPromo, deleteAdminPromo, type Ad, type PromoCode } from '../firebase'
 import { signInWithPopup, type User } from 'firebase/auth'
 import KoruLogo from '../components/KoruLogo'
 
@@ -45,7 +45,7 @@ export default function Admin() {
   const [signInError, setSignInError] = useState('')
   const [signInLoading, setSignInLoading] = useState(false)
 
-  const [activeTab, setActiveTab] = useState<'users' | 'ads'>('users')
+  const [activeTab, setActiveTab] = useState<'users' | 'promos' | 'ads'>('users')
 
   // Users tab
   const [users, setUsers] = useState<AdminUser[]>([])
@@ -58,6 +58,14 @@ export default function Admin() {
   const [grantDays, setGrantDays] = useState(30)
   const [grantLoading, setGrantLoading] = useState(false)
   const [grantMsg, setGrantMsg] = useState<{ uid: string; text: string; ok: boolean } | null>(null)
+
+  // Promos tab
+  const [promos, setPromos] = useState<PromoCode[]>([])
+  const [promosLoading, setPromosLoading] = useState(false)
+  const [promosError, setPromosError] = useState('')
+  const [promoForm, setPromoForm] = useState({ code: '', discountPercent: 10, expiresAt: '' })
+  const [promoSaving, setPromoSaving] = useState(false)
+  const [promoMsg, setPromoMsg] = useState('')
 
   // Ads tab
   const [ads, setAds] = useState<Ad[]>([])
@@ -184,6 +192,67 @@ export default function Admin() {
       .finally(() => setLoading(false))
   }, [adminUser])
 
+  // Fetch promos when promos tab is opened
+  useEffect(() => {
+    if (!adminUser || activeTab !== 'promos') return
+    fetchPromos()
+  }, [adminUser, activeTab])
+
+  async function fetchPromos() {
+    if (!adminUser) return
+    setPromosLoading(true)
+    setPromosError('')
+    try {
+      const token = await adminUser.getIdToken()
+      const data = await getAdminPromos(token)
+      setPromos(data)
+    } catch (err) {
+      setPromosError(err instanceof Error ? err.message : 'Failed to load promo codes')
+    } finally {
+      setPromosLoading(false)
+    }
+  }
+
+  async function handleCreatePromo() {
+    if (!adminUser) return
+    setPromoSaving(true)
+    setPromoMsg('')
+    try {
+      const token = await adminUser.getIdToken()
+      await createAdminPromo(token, promoForm.code, promoForm.discountPercent, promoForm.expiresAt)
+      setPromoMsg(`✓ Promo code "${promoForm.code.toUpperCase()}" created`)
+      setPromoForm({ code: '', discountPercent: 10, expiresAt: '' })
+      await fetchPromos()
+    } catch (err) {
+      setPromoMsg(err instanceof Error ? err.message : 'Failed to create promo code')
+    } finally {
+      setPromoSaving(false)
+      setTimeout(() => setPromoMsg(''), 4000)
+    }
+  }
+
+  async function handleTogglePromo(code: string) {
+    if (!adminUser) return
+    try {
+      const token = await adminUser.getIdToken()
+      await toggleAdminPromo(token, code)
+      await fetchPromos()
+    } catch (err) {
+      setPromosError(err instanceof Error ? err.message : 'Failed to toggle promo code')
+    }
+  }
+
+  async function handleDeletePromo(code: string) {
+    if (!adminUser || !confirm(`Delete promo code "${code}"?`)) return
+    try {
+      const token = await adminUser.getIdToken()
+      await deleteAdminPromo(token, code)
+      await fetchPromos()
+    } catch (err) {
+      setPromosError(err instanceof Error ? err.message : 'Failed to delete promo code')
+    }
+  }
+
   const stats = useMemo<Stats>(() => ({
     total: users.length,
     pro: users.filter(u => u.subscription?.active).length,
@@ -295,6 +364,26 @@ export default function Admin() {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-8 py-8">
 
+        {/* Tab navigation */}
+        <div className="flex gap-2 mb-6">
+          {(['users', 'promos', 'ads'] as const).map(tab => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className="px-4 py-2 rounded-xl text-xs font-semibold capitalize transition-all"
+              style={{
+                fontFamily: F,
+                background: activeTab === tab ? '#1B3B2B' : c.surface,
+                color: activeTab === tab ? '#fff' : c.body,
+              }}
+            >
+              {tab === 'promos' ? 'Promo Codes' : tab}
+            </button>
+          ))}
+        </div>
+
+        {activeTab === 'users' && (
+        <>
         {/* Stats row */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
           {[
@@ -539,6 +628,139 @@ export default function Admin() {
         <p className="text-center text-xs mt-6" style={{ fontFamily: I, color: c.muted }}>
           {filtered.length} of {users.length} users shown
         </p>
+        </>
+        )}
+
+        {/* ── Promo Codes tab ── */}
+        {activeTab === 'promos' && (
+          <div>
+            {/* Create form */}
+            <div className="rounded-2xl p-6 mb-6" style={{ background: c.card, border: `1px solid ${c.cardBorder}` }}>
+              <p className="text-xs font-bold uppercase tracking-widest mb-4" style={{ fontFamily: I, color: c.muted, letterSpacing: '0.08em' }}>Create Promo Code</p>
+              <div className="grid sm:grid-cols-3 gap-3 mb-4">
+                <div>
+                  <label className="text-xs font-semibold mb-1 block" style={{ fontFamily: I, color: c.body }}>Code</label>
+                  <input
+                    type="text"
+                    value={promoForm.code}
+                    onChange={e => setPromoForm({ ...promoForm, code: e.target.value.toUpperCase() })}
+                    placeholder="SUMMER25"
+                    className="w-full py-2.5 px-4 rounded-2xl text-sm outline-none uppercase"
+                    style={{ fontFamily: I, background: c.surface, border: `1.5px solid ${c.cardBorder}`, color: c.forest }}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold mb-1 block" style={{ fontFamily: I, color: c.body }}>Discount %</label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={100}
+                    value={promoForm.discountPercent}
+                    onChange={e => setPromoForm({ ...promoForm, discountPercent: Number(e.target.value) })}
+                    className="w-full py-2.5 px-4 rounded-2xl text-sm outline-none"
+                    style={{ fontFamily: I, background: c.surface, border: `1.5px solid ${c.cardBorder}`, color: c.forest }}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold mb-1 block" style={{ fontFamily: I, color: c.body }}>Expiration date</label>
+                  <input
+                    type="date"
+                    value={promoForm.expiresAt}
+                    onChange={e => setPromoForm({ ...promoForm, expiresAt: e.target.value })}
+                    className="w-full py-2.5 px-4 rounded-2xl text-sm outline-none"
+                    style={{ fontFamily: I, background: c.surface, border: `1.5px solid ${c.cardBorder}`, color: c.forest }}
+                  />
+                </div>
+              </div>
+              <button
+                onClick={handleCreatePromo}
+                disabled={!promoForm.code || !promoForm.expiresAt || promoSaving}
+                className="py-2.5 px-5 rounded-2xl text-sm font-semibold text-white transition-all hover:opacity-90 disabled:opacity-40"
+                style={{ fontFamily: F, background: '#1B3B2B' }}
+              >
+                {promoSaving ? 'Creating…' : 'Create promo code'}
+              </button>
+              {promoMsg && (
+                <p className="text-xs mt-3" style={{ fontFamily: I, color: promoMsg.startsWith('✓') ? '#1B3B2B' : '#E07A5F' }}>{promoMsg}</p>
+              )}
+            </div>
+
+            {/* Error */}
+            {promosError && (
+              <div className="rounded-2xl px-5 py-4 mb-5 text-sm" style={{ background: 'rgba(224,122,95,0.1)', color: '#E07A5F', fontFamily: I }}>
+                ⚠️ {promosError}
+              </div>
+            )}
+
+            {/* Promo list */}
+            {promosLoading ? (
+              <div className="flex flex-col items-center justify-center py-16 gap-3">
+                <div className="w-8 h-8 rounded-full border-2 animate-spin" style={{ borderColor: 'rgba(162,191,166,0.3)', borderTopColor: '#1B3B2B' }} />
+                <p className="text-sm" style={{ fontFamily: I, color: c.muted }}>Loading promo codes…</p>
+              </div>
+            ) : promos.length === 0 ? (
+              <div className="text-center py-16">
+                <p className="text-3xl mb-3">🎫</p>
+                <p className="text-sm" style={{ fontFamily: I, color: c.muted }}>No promo codes yet. Create one above.</p>
+              </div>
+            ) : (
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {promos.map(p => {
+                  const isExpired = p.expiresAt ? new Date(p.expiresAt) < new Date() : false
+                  return (
+                    <div key={p.code} className="rounded-2xl p-5" style={{ background: c.card, border: `1px solid ${c.cardBorder}` }}>
+                      <div className="flex items-start justify-between mb-3">
+                        <div>
+                          <p className="text-lg font-bold" style={{ fontFamily: F, color: c.forest }}>{p.code}</p>
+                          <p className="text-xs" style={{ fontFamily: I, color: c.muted }}>
+                            {p.discountPercent}% off
+                          </p>
+                        </div>
+                        <span
+                          className="text-[10px] font-bold px-2 py-0.5 rounded-full"
+                          style={{
+                            background: p.active && !isExpired ? 'rgba(162,191,166,0.25)' : 'rgba(224,122,95,0.12)',
+                            color: p.active && !isExpired ? '#3a6b4a' : '#E07A5F',
+                            fontFamily: I,
+                          }}
+                        >
+                          {isExpired ? 'Expired' : p.active ? 'Active' : 'Paused'}
+                        </span>
+                      </div>
+                      <p className="text-xs mb-4" style={{ fontFamily: I, color: c.muted }}>
+                        Expires: {p.expiresAt ? fmtDateFull(p.expiresAt) : '—'}
+                      </p>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleTogglePromo(p.code)}
+                          className="flex-1 py-1.5 rounded-lg text-xs font-semibold transition-opacity hover:opacity-80"
+                          style={{ background: c.surface, color: c.forest, fontFamily: F }}
+                        >
+                          {p.active ? 'Pause' : 'Activate'}
+                        </button>
+                        <button
+                          onClick={() => handleDeletePromo(p.code)}
+                          className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-opacity hover:opacity-80"
+                          style={{ background: 'rgba(224,122,95,0.12)', color: '#E07A5F', fontFamily: F }}
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── Ads tab placeholder ── */}
+        {activeTab === 'ads' && (
+          <div className="text-center py-16">
+            <p className="text-3xl mb-3">📢</p>
+            <p className="text-sm" style={{ fontFamily: I, color: c.muted }}>Ad management coming soon.</p>
+          </div>
+        )}
       </main>
     </div>
   )
