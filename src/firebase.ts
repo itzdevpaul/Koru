@@ -183,7 +183,7 @@ export async function getUserProfile(uid: string): Promise<UserProfile | null> {
   const snap = await getDoc(doc(db, 'users', uid, 'profile', 'main'))
   if (!snap.exists()) return null
   const data = snap.data() as Record<string, unknown>
-  const profile = { ...data } as UserProfile
+  const profile = { ...data } as unknown as UserProfile
   // Decrypt the intention if encrypted version exists
   if (isEncrypted(data.currentIntentionEnc)) {
     const decrypted = await decryptText(data.currentIntentionEnc as EncryptedPayload, uid)

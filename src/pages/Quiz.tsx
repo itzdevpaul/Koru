@@ -105,11 +105,24 @@ export default function Quiz() {
     setSharingImage(true)
     setShareMsg('')
     try {
+      // Compute full score breakdown across all result types for the trait radar
+      const totals: Record<string, number> = {}
+      quiz.results.forEach(r => { totals[r.id] = 0 })
+      for (const [qid, oid] of Object.entries(answers)) {
+        const q = quiz.questions.find(qx => qx.id === qid)
+        const opt = q?.options.find(o => o.id === oid)
+        if (opt) for (const [rid, s] of Object.entries(opt.scores)) totals[rid] = (totals[rid] ?? 0) + s
+      }
+      const handle = user?.displayName || user?.email?.split('@')[0] || 'you'
       const blob = await generateQuizShareImage({
         emoji: result.emoji,
         title: result.title,
         tagline: result.tagline,
         quizTitle: quiz.title,
+        traits: result.traits,
+        scores: totals,
+        resultTypes: quiz.results.map(r => ({ id: r.id, title: r.title })),
+        handle,
       })
       const outcome = await shareOrDownloadImage(blob, `koru-${quiz.id}-result.png`, `My Koru result: ${result.title}`)
       if (outcome === 'downloaded') setShareMsg('Image saved!')

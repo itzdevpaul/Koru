@@ -212,12 +212,17 @@ export default function Home() {
     try {
       const moodOpt = MOOD_OPTIONS.find(m => m.key === checkIn.mood)
       const today = new Date().toLocaleDateString('en-NG', { weekday: 'long', month: 'long', day: 'numeric' })
+      const handle = user?.displayName || user?.email?.split('@')[0] || 'you'
       const blob = await generateCheckInShareImage({
+        moodKey: checkIn.mood,
         moodEmoji: moodOpt?.emoji ?? '🙂',
         moodLabel: moodOpt?.label ?? checkIn.mood,
         energy: checkIn.energy,
         reflection: checkIn.reflection,
         date: today,
+        streak,
+        recentCheckIns: patternCheckIns.map(c => ({ date: c.date, moodKey: c.mood, energy: c.energy })),
+        handle,
       })
       const outcome = await shareOrDownloadImage(blob, 'koru-checkin.png', 'My Koru daily check-in')
       if (outcome === 'downloaded') setCheckInShareMsg('Image saved!')

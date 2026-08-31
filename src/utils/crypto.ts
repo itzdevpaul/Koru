@@ -83,9 +83,9 @@ export async function decryptText(
     const iv = fromBase64(payload.i)
     const ciphertext = fromBase64(payload.c)
     const decrypted = await crypto.subtle.decrypt(
-      { name: KEY_ALGO, iv },
+      { name: KEY_ALGO, iv: iv as BufferSource },
       key,
-      ciphertext,
+      ciphertext as BufferSource,
     )
     return new TextDecoder().decode(decrypted)
   } catch {
