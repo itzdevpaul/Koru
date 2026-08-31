@@ -155,14 +155,38 @@ async function notifyInviter(inviterUid: string, referralCount: number, rewardGr
 const app = express()
 const PORT = 3001
 
+app.disable('x-powered-by')
 app.use(express.json())
+
+// Keep the container deployment aligned with Vercel's browser security policy.
+app.use((req, res, next) => {
+  res.setHeader('Content-Security-Policy', "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self' https://pay.squadco.com https://sandbox-pay.squadco.com; script-src 'self' 'unsafe-inline' https://apis.google.com https://www.gstatic.com https://www.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://*.google.com https://securetoken.googleapis.com https://identitytoolkit.googleapis.com https://firebaseinstallations.googleapis.com https://firestore.googleapis.com https://api-d.squadco.com https://sandbox-api-d.squadco.com; frame-src 'self' https://*.firebaseapp.com https://*.google.com https://accounts.google.com https://pay.squadco.com https://sandbox-pay.squadco.com; worker-src 'self' blob:; manifest-src \'self\';")
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=(self), usb=(), interest-cohort=()')
+  res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload')
+  res.setHeader('X-Content-Type-Options', 'nosniff')
+  res.setHeader('X-Frame-Options', 'DENY')
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin')
+  res.setHeader('X-Permitted-Cross-Domain-Policies', 'none')
+  res.setHeader('Cross-Origin-Resource-Policy', 'same-origin')
+  next()
+})
 
 // Allow requests from Vite dev server
 app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*')
+  const origin = req.header('Origin')
+  const trusted = origin === 'https://koru.com.ng' ||
+    origin === 'https://www.koru.com.ng' ||
+    /^https:\/\/[\w-]+(\.[\w-]+)*\.vercel\.app$/.test(origin ?? '') ||
+    /^https:\/\/[\w-]+(\.[\w-]+)*\.replit\.dev$/.test(origin ?? '')
+  if (origin && trusted) res.header('Access-Control-Allow-Origin', origin)
+  res.header('Vary', 'Origin')
   res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
   res.header('Access-Control-Allow-Methods', 'GET,POST,OPTIONS')
-  if (req.method === 'OPTIONS') { res.sendStatus(200); return }
+  res.header('Access-Control-Max-Age', '86400')
+  if (req.method === 'OPTIONS') {
+    if (origin && !trusted) { res.status(403).json({ error: 'Origin is not allowed.' }); return }
+    res.sendStatus(204); return
+  }
   next()
 })
 

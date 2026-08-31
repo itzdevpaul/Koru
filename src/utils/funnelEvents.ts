@@ -91,19 +91,7 @@ export function trackCtaClick(amount?: number): void {
 /** Track bounce — call on page unload if no CTA was clicked */
 export function trackBounce(): void {
   if (!lastTrackedView || ctaClicked) return
-  // Use sendBeacon for reliability on page unload
-  const user = auth.currentUser
-  if (!user) return
-  const body = JSON.stringify({
-    type: 'upgrade_bounce',
-    uid: user.uid,
-    page: '/upgrade',
-    timestamp: new Date().toISOString(),
-  })
-  try {
-    navigator.sendBeacon('/api/funnel-event', body)
-  } catch {
-    // Fallback — best effort
-    void logEvent('upgrade_bounce')
-  }
+  // Firestore logging already enforces the authenticated UID; sendBeacon
+  // cannot attach the Firebase Bearer token and would create a spoofable API.
+  void logEvent('upgrade_bounce')
 }

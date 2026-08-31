@@ -1,8 +1,9 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import crypto from 'node:crypto'
 import { getAdminApp } from '../_lib/admin'
-import { getAuth } from 'firebase-admin/auth'
 import { getFirestore } from 'firebase-admin/firestore'
+import { getAuthenticatedUser, sendApiError } from '../_lib/auth'
+import { handleOptions, methodNotAllowed, setCors } from '../_lib/http'
 
 function inviteCode(): string {
   const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
@@ -11,16 +12,12 @@ function inviteCode(): string {
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  res.setHeader('Access-Control-Allow-Origin', '*')
-  res.setHeader('Access-Control-Allow-Methods', 'POST,OPTIONS')
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization')
-  if (req.method === 'OPTIONS') { res.status(200).end(); return }
-  if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return }
+  setCors(req, res, 'POST,OPTIONS')
+  if (handleOptions(req, res)) return
+  if (req.method !== 'POST') { methodNotAllowed(res, 'POST,OPTIONS'); return }
 
   try {
-    const authHeader = req.headers.authorization
-    if (!authHeader?.startsWith('Bearer ')) { res.status(401).json({ error: 'Authentication required' }); return }
-    const decoded = await getAuth(getAdminApp()).verifyIdToken(authHeader.slice(7))
+    const decoded = await getAuthenticatedUser(req)
 
     const firestore = getFirestore(getAdminApp())
     const profileRef = firestore.doc(`users/${decoded.uid}/profile/main`)
@@ -58,8 +55,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
     res.status(503).json({ error: 'Could not create an invite code. Please try again.' })
   } catch (err) {
-    const msg = err instanceof Error ? err.message : 'Unknown error'
-    console.error('[Koru] /api/referrals/ensure-code error:', msg)
-    res.status(msg === 'Authentication required' ? 401 : 500).json({ error: msg })
+    sendApiError(res, err)
   }
 }

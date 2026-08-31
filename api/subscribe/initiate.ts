@@ -1,113 +1,78 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { getAdminApp } from '../_lib/admin'
 import { getFirestore } from 'firebase-admin/firestore'
+import { getAuthenticatedUser, sendApiError } from '../_lib/auth'
+import { getAdminApp } from '../_lib/admin'
+import { handleOptions, methodNotAllowed, setCors } from '../_lib/http'
+import { validatePromoCode } from '../_lib/promo'
+import { initiateSquadTransaction, PRICING, safeCallbackOrigin } from '../_lib/squad'
 
-function cors(res: VercelResponse) {
-  res.setHeader('Access-Control-Allow-Origin', '*')
-  res.setHeader('Access-Control-Allow-Methods', 'POST,OPTIONS')
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
-}
-
-function squadBase() {
-  return process.env.SQUAD_ENV === 'prod'
-    ? 'https://api-d.squadco.com'
-    : 'https://sandbox-api-d.squadco.com'
-}
-
-const BASE_PRICE_KOBO = 250000 // ₦2,500
-
-function calculatePrice(referredBy: boolean): {
+function calculatePrice(referredBy: boolean, isFirstTime: boolean, promoDiscount: number): {
   amount: number
   discountPercent: number
   discountReason: string
 } {
   const now = new Date()
-  // Anniversary: September 4 (month is 0-indexed, so September = 8)
-  const isAnniversary = now.getMonth() === 8 && now.getDate() === 4
-  if (isAnniversary) {
+  const anniversary = now.getMonth() === 8 && now.getDate() === 4
+  if (anniversary) {
+    const discount = Math.min(100, 50 + promoDiscount)
     return {
-      amount: Math.round(BASE_PRICE_KOBO * 0.5),
-      discountPercent: 50,
-      discountReason: 'Happy Anniversary! 50% off Koru Pro',
+      amount: Math.round(PRICING.baseAmount * (1 - discount / 100)),
+      discountPercent: discount,
+      discountReason: promoDiscount ? `Happy Anniversary! 50% + promo ${promoDiscount}% off` : 'Happy Anniversary! 50% off Koru Pro',
+    }
+  }
+  if (isFirstTime) {
+    const discount = Math.min(100, 60 + promoDiscount)
+    return {
+      amount: Math.round(PRICING.baseAmount * (1 - discount / 100)),
+      discountPercent: discount,
+      discountReason: promoDiscount ? `First month intro 60% + promo ${promoDiscount}% off` : 'First month intro offer — 60% off',
+    }
+  }
+  if (promoDiscount > 0) {
+    return {
+      amount: Math.round(PRICING.baseAmount * (1 - promoDiscount / 100)),
+      discountPercent: promoDiscount,
+      discountReason: `Promo code — ${promoDiscount}% off`,
     }
   }
   if (referredBy) {
     return {
-      amount: Math.round(BASE_PRICE_KOBO * 0.95),
+      amount: Math.round(PRICING.baseAmount * 0.95),
       discountPercent: 5,
       discountReason: 'Invite code benefit — 5% off',
     }
   }
-  return { amount: BASE_PRICE_KOBO, discountPercent: 0, discountReason: '' }
+  return { amount: PRICING.baseAmount, discountPercent: 0, discountReason: '' }
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  cors(res)
-  if (req.method === 'OPTIONS') { res.status(200).end(); return }
-  if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return }
+  setCors(req, res, 'POST,OPTIONS')
+  if (handleOptions(req, res)) return
+  if (req.method !== 'POST') { methodNotAllowed(res, 'POST,OPTIONS'); return }
 
   try {
-    const { uid, email, origin } = req.body as { uid: string; email: string; origin?: string }
-    if (!uid || !email) { res.status(400).json({ error: 'uid and email required' }); return }
+    const decoded = await getAuthenticatedUser(req)
+    if (!decoded.email) { res.status(400).json({ error: 'Authenticated email is required' }); return }
 
-    const key = process.env.SQUAD_SECRET_KEY
-    if (!key) { res.status(500).json({ error: 'SQUAD_SECRET_KEY not configured' }); return }
-
-    // Check if user was referred for discount eligibility
-    let referredBy = false
-    try {
-      const firestore = getFirestore(getAdminApp())
-      const profileSnap = await firestore.doc(`users/${uid}/profile/main`).get()
-      referredBy = Boolean(profileSnap.exists && profileSnap.data()?.referredBy)
-    } catch { /* discount is best-effort */ }
-    const price = calculatePrice(referredBy)
-
-    const ref = `koru_sub_${uid}_${Date.now()}`
-
-    // Build callback URL — trust origin only for known safe patterns
-    const safeOrigin =
-      origin &&
-      (origin === 'https://koru.com.ng' || /^https:\/\/[\w-]+(\.[\w-]+)*\.vercel\.app$/.test(origin) || /^https:\/\/[\w-]+(\.[\w-]+)*\.replit\.dev$/.test(origin))
-        ? origin
-        : (process.env.APP_URL ?? 'https://koru.com.ng')
-    const callbackUrl = `${safeOrigin}/payment/return`
-
-    const squadRes = await fetch(`${squadBase()}/transaction/initiate`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${key}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        email,
-        amount: price.amount,
-        currency: 'NGN',
-        initiate_type: 'inline',
-        transaction_ref: ref,
-        callback_url: callbackUrl,
-        pass_charge: false,
-      }),
+    const body = (req.body ?? {}) as { origin?: string; promoCode?: string }
+    const firestore = getFirestore(getAdminApp())
+    const [profileSnap, subscriptionSnap] = await Promise.all([
+      firestore.doc(`users/${decoded.uid}/profile/main`).get(),
+      firestore.doc(`users/${decoded.uid}/subscription/main`).get(),
+    ])
+    const referredBy = Boolean(profileSnap.exists && profileSnap.data()?.referredBy)
+    const promo = body.promoCode ? await validatePromoCode(body.promoCode) : null
+    const price = calculatePrice(referredBy, !subscriptionSnap.exists, promo?.valid ? promo.discountPercent : 0)
+    const reference = `koru_sub_${decoded.uid}_${Date.now()}`
+    const { checkoutUrl } = await initiateSquadTransaction({
+      email: decoded.email,
+      amount: price.amount,
+      reference,
+      callbackUrl: `${safeCallbackOrigin(body.origin)}/payment/return`,
     })
-
-    const data = await squadRes.json()
-
-    const isProd = process.env.SQUAD_ENV === 'prod'
-    const checkoutUrl: string =
-      data?.data?.checkout_url ??
-      (isProd ? `https://pay.squadco.com/${ref}` : `https://sandbox-pay.squadco.com/${ref}`)
-
-    // Squad sandbox returns { success: true }, prod returns { status: 200 }
-    const ok = data?.success === true || data?.status === 200
-    if (!ok) {
-      console.error('[Koru] Squad initiate failed:', JSON.stringify(data))
-      res.status(502).json({ error: data?.message ?? 'Could not create payment session' })
-      return
-    }
-
-    res.json({ checkout_url: checkoutUrl, ref })
+    res.json({ checkout_url: checkoutUrl, ref: reference })
   } catch (err) {
-    const msg = err instanceof Error ? err.message : 'Unknown error'
-    console.error('[Koru] /api/subscribe/initiate error:', msg)
-    res.status(500).json({ error: msg })
+    sendApiError(res, err)
   }
 }

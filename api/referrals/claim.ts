@@ -1,8 +1,9 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { getAdminApp } from '../_lib/admin'
-import { getAuth } from 'firebase-admin/auth'
 import { Timestamp, getFirestore } from 'firebase-admin/firestore'
 import { getMessaging } from 'firebase-admin/messaging'
+import { getAuthenticatedUser, sendApiError } from '../_lib/auth'
+import { handleOptions, methodNotAllowed, setCors } from '../_lib/http'
 
 function safeInviteCode(value: unknown): string {
   return String(value ?? '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12)
@@ -51,16 +52,12 @@ async function notifyInviter(inviterUid: string, referralCount: number, rewardGr
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  res.setHeader('Access-Control-Allow-Origin', '*')
-  res.setHeader('Access-Control-Allow-Methods', 'POST,OPTIONS')
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization')
-  if (req.method === 'OPTIONS') { res.status(200).end(); return }
-  if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return }
+  setCors(req, res, 'POST,OPTIONS')
+  if (handleOptions(req, res)) return
+  if (req.method !== 'POST') { methodNotAllowed(res, 'POST,OPTIONS'); return }
 
   try {
-    const authHeader = req.headers.authorization
-    if (!authHeader?.startsWith('Bearer ')) { res.status(401).json({ error: 'Authentication required' }); return }
-    const decoded = await getAuth(getAdminApp()).verifyIdToken(authHeader.slice(7))
+    const decoded = await getAuthenticatedUser(req)
 
     const code = safeInviteCode((req.body as { inviteCode?: string }).inviteCode)
     if (code.length < 6) { res.status(400).json({ error: 'Enter a valid invite code.' }); return }
@@ -127,8 +124,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     res.json({ ok: true, rewardGranted: result.rewardGranted })
   } catch (err) {
-    const msg = err instanceof Error ? err.message : 'Unknown error'
-    const status = msg.includes('valid') || msg.includes('own') || msg.includes('already') ? 400 : msg === 'Authentication required' ? 401 : 500
-    res.status(status).json({ error: msg })
+    const msg = err instanceof Error ? err.message : 'Internal server error'
+    const status = msg.includes('valid') || msg.includes('own') || msg.includes('already') ? 400 : undefined
+    if (status) res.status(status).json({ error: msg })
+    else sendApiError(res, err)
   }
 }

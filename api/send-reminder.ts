@@ -1,22 +1,21 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { Resend } from 'resend'
-
-function cors(res: VercelResponse) {
-  res.setHeader('Access-Control-Allow-Origin', '*')
-  res.setHeader('Access-Control-Allow-Methods', 'POST,OPTIONS')
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
-}
+import { getAuthenticatedUser, sendApiError } from './_lib/auth'
+import { handleOptions, methodNotAllowed, setCors } from './_lib/http'
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  cors(res)
-  if (req.method === 'OPTIONS') { res.status(200).end(); return }
-  if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return }
+  setCors(req, res, 'POST,OPTIONS')
+  if (handleOptions(req, res)) return
+  if (req.method !== 'POST') { methodNotAllowed(res, 'POST,OPTIONS'); return }
 
   try {
+    const decoded = await getAuthenticatedUser(req)
     const { to, name, resultTitle } = req.body as { to: string; name: string; resultTitle?: string }
-    if (!to || !name) { res.status(400).json({ error: 'to and name are required' }); return }
+    if (!to || !name || to.toLowerCase() !== decoded.email?.toLowerCase()) {
+      res.status(403).json({ error: 'Email ownership could not be verified' }); return
+    }
 
-    const key = process.env.RESEND_API_KEY
+    const key = process.env.RESEND_API_KEY?.trim()
     if (!key) { res.status(500).json({ error: 'RESEND_API_KEY not configured' }); return }
 
     const resend = new Resend(key)
@@ -29,9 +28,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     })
     res.json({ ok: true })
   } catch (err) {
-    const msg = err instanceof Error ? err.message : 'Unknown error'
-    console.error('[Koru] send-reminder error:', msg)
-    res.status(500).json({ error: msg })
+    sendApiError(res, err)
   }
 }
 
@@ -48,7 +45,7 @@ function getReflectionPrompt(resultTitle?: string): string {
     'What part of your life feels most aligned with who you are becoming?',
     'If you stripped away what everyone expected of you, what would remain?',
   ]
-  if (resultTitle) return `As ${resultTitle}, here's your prompt: ${prompts[Math.floor(Math.random() * prompts.length)]}`
+  if (resultTitle) return `As ${escapeHtml(resultTitle.slice(0, 160))}, here's your prompt: ${prompts[Math.floor(Math.random() * prompts.length)]}`
   return prompts[Math.floor(Math.random() * prompts.length)]
 }
 
@@ -67,7 +64,7 @@ function buildReminderEmail(name: string, prompt: string): string {
         </td></tr>
         <tr><td style="background:#fff;border-radius:20px;padding:36px 32px;border:1px solid rgba(162,191,166,0.3)">
           <p style="margin:0 0 8px;color:#A2BFA6;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:1px">Weekly Reflection</p>
-          <h1 style="margin:0 0 16px;color:#1B3B2B;font-family:'Plus Jakarta Sans',sans-serif;font-size:22px;font-weight:700;line-height:1.3">Hey ${name} 👋</h1>
+           <h1 style="margin:0 0 16px;color:#1B3B2B;font-family:'Plus Jakarta Sans',sans-serif;font-size:22px;font-weight:700;line-height:1.3">Hey ${escapeHtml(name)} 👋</h1>
           <p style="margin:0 0 24px;color:#4a6a58;font-size:15px;line-height:1.6">Here's your reflection prompt for this week:</p>
           <blockquote style="margin:0 0 28px;padding:20px 24px;background:rgba(162,191,166,0.12);border-left:3px solid #A2BFA6;border-radius:0 12px 12px 0">
             <p style="margin:0;color:#1B3B2B;font-size:16px;font-weight:600;line-height:1.5;font-style:italic">${prompt}</p>
@@ -84,4 +81,8 @@ function buildReminderEmail(name: string, prompt: string): string {
   </table>
 </body>
 </html>`
+}
+
+function escapeHtml(value: unknown): string {
+  return String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char] ?? char))
 }

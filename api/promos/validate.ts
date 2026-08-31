@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { getAuthenticatedUser, sendApiError } from '../_lib/auth'
 import { handleOptions, methodNotAllowed, setCors } from '../_lib/http'
-import { verifySquadTransaction } from '../_lib/squad'
+import { validatePromoCode } from '../_lib/promo'
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   setCors(req, res, 'POST,OPTIONS')
@@ -9,12 +9,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') { methodNotAllowed(res, 'POST,OPTIONS'); return }
 
   try {
-    const decoded = await getAuthenticatedUser(req)
-    const { ref } = (req.body ?? {}) as { ref?: string }
-    if (!ref || !ref.startsWith(`koru_sub_${decoded.uid}_`)) {
-      res.status(403).json({ error: 'Payment ownership could not be verified' }); return
-    }
-    res.json({ verified: await verifySquadTransaction(ref) })
+    await getAuthenticatedUser(req)
+    const { code } = (req.body ?? {}) as { code?: string }
+    if (!code) { res.status(400).json({ error: 'Promo code is required.' }); return }
+    res.json(await validatePromoCode(code))
   } catch (err) {
     sendApiError(res, err)
   }
