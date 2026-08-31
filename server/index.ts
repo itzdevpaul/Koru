@@ -124,14 +124,76 @@ async function notifyInviter(inviterUid: string, referralCount: number, rewardGr
 const app = express()
 const PORT = 3001
 
+// Remove X-Powered-By to avoid disclosing server info
+app.disable('x-powered-by')
+
 app.use(express.json())
 
-// Allow requests from Vite dev server
+// ── Security headers ──────────────────────────────────────────────────────────
+app.use((_req, res, next) => {
+  // Remove server identification headers
+  res.removeHeader('Server')
+
+  // Content-Security-Policy — restrict sources to self + known Firebase/Squad CDNs
+  res.setHeader(
+    'Content-Security-Policy',
+    [
+      "default-src 'self'",
+      "script-src 'self' 'unsafe-inline' https://firebasestorage.googleapis.com https://apis.google.com",
+      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+      "font-src 'self' https://fonts.gstatic.com",
+      "img-src 'self' data: blob: https:",
+      "connect-src 'self' https://*.firebaseio.com https://*.googleapis.com https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://sandbox-api-d.squadco.com https://api-d.squadco.com https://sandbox-pay.squadco.com https://pay.squadco.com wss://*.firebaseio.com",
+      "frame-src 'self' https://sandbox-pay.squadco.com https://pay.squadco.com",
+      "frame-ancestors 'none'",
+      "base-uri 'self'",
+      "form-action 'self'",
+    ].join('; '),
+  )
+
+  // Prevent clickjacking
+  res.setHeader('X-Frame-Options', 'DENY')
+
+  // Prevent MIME-type sniffing
+  res.setHeader('X-Content-Type-Options', 'nosniff')
+
+  // XSS protection for older browsers
+  res.setHeader('X-XSS-Protection', '1; mode=block')
+
+  // Restrict browser feature access
+  res.setHeader(
+    'Permissions-Policy',
+    'camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()',
+  )
+
+  // Referrer policy
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin')
+
+  next()
+})
+
+// ── CORS — restrict to known origins only ────────────────────────────────────
+const ALLOWED_ORIGINS = new Set([
+  'https://koru.com.ng',
+  'http://localhost:5000',
+  'http://localhost:3000',
+])
+
 app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*')
+  const origin = req.headers.origin ?? ''
+  // Allow sandbox preview origins (e.g. https://3000-abc123.preview.example)
+  const isSandbox = /^https:\/\/\d+-[a-zA-Z0-9]+\.preview\.[a-zA-Z0-9.]+$/.test(origin)
+  if (ALLOWED_ORIGINS.has(origin) || isSandbox) {
+    res.header('Access-Control-Allow-Origin', origin)
+    res.header('Vary', 'Origin')
+  }
   res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
-  res.header('Access-Control-Allow-Methods', 'GET,POST,OPTIONS')
+  res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
   if (req.method === 'OPTIONS') { res.sendStatus(200); return }
+  // Block unneeded HTTP methods
+  if (['PUT', 'DELETE', 'PATCH', 'TRACE'].includes(req.method)) {
+    res.status(405).json({ error: 'Method not allowed' }); return
+  }
   next()
 })
 
