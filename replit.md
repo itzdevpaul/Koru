@@ -60,7 +60,18 @@ npm run dev
 - `VITE_FIREBASE_STORAGE_BUCKET`
 - `VITE_FIREBASE_MESSAGING_SENDER_ID`
 - `VITE_FIREBASE_APP_ID`
-- `VITE_ADMIN_PASSWORD` *(optional)*
+- `VITE_FIREBASE_VAPID_KEY` *(optional, for push notifications)*
+- `VITE_SQUAD_PUBLIC_KEY` *(required by the payment UI)*
+- `FIREBASE_SERVICE_ACCOUNT` *(required by the API; raw or base64-encoded Firebase Admin service-account JSON)*
+- `SQUAD_SECRET_KEY` *(required for payment initiation and verification)*
+- `RESEND_API_KEY` *(required only for transactional email endpoints)*
+- `SQUAD_ENV=prod` *(required for live Squad payments; omit or use another value for sandbox)*
+- `APP_URL=https://www.koru.com.ng` *(recommended for payment callbacks and email links)*
+
+When deploying through Vercel, add the same variables in the Vercel project’s Environment
+Variables settings for the relevant environment. Replit Secrets are not automatically
+available to an external Vercel deployment. After changing Vercel variables, create a new
+deployment so the serverless function receives them.
 
 ## Design Tokens
 
