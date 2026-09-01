@@ -7,10 +7,10 @@
     "node": ">=20"
   },
   "scripts": {
-    "dev": "concurrently -n vite,api -c green,blue \"vite --host 0.0.0.0 --port 5000\" \"tsx watch server/index.ts\"",
+    "dev": "concurrently -n vite,api -c green,blue \"vite --host 0.0.0.0 --port 5000\" \"tsx watch server/start.ts\"",
     "build": "vite build",
     "preview": "vite preview --host 0.0.0.0 --port 5000",
-    "api": "tsx watch server/index.ts"
+    "api": "tsx watch server/start.ts"
   },
   "dependencies": {
     "@firebase/firestore": "^4.7.15",

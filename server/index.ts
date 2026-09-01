@@ -160,7 +160,6 @@ async function notifyInviter(inviterUid: string, referralCount: number, rewardGr
 }
 
 const app = express()
-const PORT = 3001
 
 app.disable('x-powered-by')
 app.use(express.json())
@@ -1055,10 +1054,6 @@ app.post('/api/funnel-event', async (req, res) => {
 app.get('/api/health', (_req, res) => res.json({ status: 'ok' }))
 
 export { app }
-
-if (process.env.VERCEL !== '1') {
-  app.listen(PORT, () => console.log(`[Koru API] Running on port ${PORT}`))
-}
 
 // ── Daily push scheduler ─────────────────────────────────────────────────────
 // Enabled only in the production environment so local development never sends
