@@ -1,9 +1,14 @@
-import express from 'express'
+import express, { type Application, type Request } from 'express'
 import crypto from 'node:crypto'
 import { Resend } from 'resend'
 import { initializeApp, cert, getApps, type App } from 'firebase-admin/app'
 import { getAuth } from 'firebase-admin/auth'
-import { FieldValue, Timestamp, getFirestore, FieldPath } from 'firebase-admin/firestore'
+import {
+  FieldValue,
+  Timestamp,
+  getFirestore,
+  FieldPath,
+} from 'firebase-admin/firestore'
 import { getMessaging } from 'firebase-admin/messaging'
 
 // ── Firebase Admin init (lazy, only if credentials are present) ───────────────
@@ -27,7 +32,7 @@ function getAdminApp(): App {
   return _adminApp
 }
 
-async function getAuthenticatedUser(req: express.Request) {
+async function getAuthenticatedUser(req: Request) {
   const header = req.headers.authorization
   if (!header?.startsWith('Bearer ')) throw new Error('Authentication required')
   return getAuth(getAdminApp()).verifyIdToken(header.slice(7))
@@ -159,7 +164,7 @@ async function notifyInviter(inviterUid: string, referralCount: number, rewardGr
   }
 }
 
-const app = express()
+const app = express() as Application
 
 app.disable('x-powered-by')
 app.use(express.json())
