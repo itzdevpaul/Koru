@@ -90,6 +90,7 @@ export default function PrivacyPolicy() {
             <SubSection title="2.1 Information You Provide">
               <ul>
                 <li><strong>Account email address:</strong> When you create an account, we collect your email address to authenticate you and send relevant updates.</li>
+                <li><strong>WhatsApp number:</strong> If you choose to provide it, we collect your WhatsApp number and consent to send occasional Koru prompts, updates, and reflections. You can stop these messages at any time.</li>
                 <li><strong>Assessment responses:</strong> When you complete assessments, your answers are processed to generate your personalised report. You may complete assessments anonymously — a name is never required.</li>
               </ul>
             </SubSection>
@@ -100,7 +101,7 @@ export default function PrivacyPolicy() {
               </ul>
             </SubSection>
             <SubSection title="2.3 Information We Do Not Collect">
-              <p>We do not require your full name, home address, phone number, national ID, or government-issued identification at any point.</p>
+              <p>We do not require your home address, national ID, or government-issued identification at any point. A WhatsApp number is optional and is collected only when you choose to opt in to WhatsApp messages.</p>
             </SubSection>
           </Section>
 

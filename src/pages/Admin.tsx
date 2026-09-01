@@ -23,6 +23,8 @@ interface AdminUser {
     streak: number
     lastActive: string
     emailOptIn: boolean
+    whatsappNumber: string
+    whatsappOptIn: boolean
   } | null
   subscription: {
     active: boolean
@@ -544,6 +546,8 @@ export default function Admin() {
                       <Row label="Focus areas" value={user.profile?.focusAreas?.join(', ') || '—'} />
                       <Row label="Last active" value={user.profile?.lastActive || '—'} />
                       <Row label="Streak" value={user.profile?.streak ? `${user.profile.streak} days` : '—'} />
+                      <Row label="WhatsApp" value={user.profile?.whatsappNumber || '—'} />
+                      <Row label="WhatsApp opt-in" value={user.profile?.whatsappOptIn ? 'Yes' : 'No'} />
                     </DetailCard>
 
                     <DetailCard title="Subscription" c={c}>

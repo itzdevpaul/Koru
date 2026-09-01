@@ -36,7 +36,7 @@ import {
   getToken,
   isSupported as isMessagingSupported,
 } from 'firebase/messaging'
-import { sanitizeDisplayName, sanitizeEmail, sanitizeHttpUrl, sanitizeInviteCode, sanitizeText } from './utils/sanitize'
+import { normalizeWhatsAppNumber, sanitizeDisplayName, sanitizeEmail, sanitizeHttpUrl, sanitizeInviteCode, sanitizeText } from './utils/sanitize'
 import { encryptText, decryptText, isEncrypted, type EncryptedPayload } from './utils/crypto'
 
 const firebaseConfig = {
@@ -161,6 +161,9 @@ export interface UserProfile {
   referredBy?: string
   referredAt?: string
   streakFreezesUsed?: Record<string, number>  // { "2026-08": 1 }
+  whatsappNumber?: string
+  whatsappOptIn?: boolean
+  whatsappConsentAt?: string
 }
 
 export async function saveUserProfile(uid: string, data: UserProfile): Promise<void> {
@@ -200,12 +203,28 @@ function sanitizeProfile(data: Partial<UserProfile>): Partial<UserProfile> {
   if ('ageRange' in safe) safe.ageRange = sanitizeText(safe.ageRange, 40)
   if ('currentIntention' in safe) safe.currentIntention = sanitizeText(safe.currentIntention, 500)
   if ('inviteCode' in safe) safe.inviteCode = sanitizeInviteCode(safe.inviteCode)
+  if ('whatsappNumber' in safe) safe.whatsappNumber = normalizeWhatsAppNumber(safe.whatsappNumber)
+  if ('whatsappOptIn' in safe) safe.whatsappOptIn = Boolean(safe.whatsappOptIn)
+  if ('whatsappConsentAt' in safe) safe.whatsappConsentAt = sanitizeText(safe.whatsappConsentAt, 40)
   // Referral totals, rewards, and ownership links are server-managed.
   delete safe.referralCount
   delete safe.referralRewardGranted
   delete safe.referredBy
   delete safe.referredAt
   return safe
+}
+
+export async function saveWhatsAppContact(uid: string, value: string): Promise<void> {
+  assertOwnUid(uid)
+  const whatsappNumber = normalizeWhatsAppNumber(value)
+  if (!whatsappNumber) throw new Error('Enter a valid WhatsApp number.')
+
+  await setDoc(doc(db, 'users', uid, 'profile', 'main'), {
+    whatsappNumber,
+    whatsappOptIn: true,
+    whatsappConsentAt: new Date().toISOString(),
+    updatedAt: serverTimestamp(),
+  }, { merge: true })
 }
 
 // ── Browser push notifications ──────────────────────────────────────────────

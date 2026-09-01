@@ -28,6 +28,14 @@ service cloud.firestore {
       return request.auth != null && request.auth.uid == uid;
     }
 
+    function hasValidWhatsAppContact(data) {
+      return data.whatsappNumber is string
+        && data.whatsappNumber.matches('^\\+[1-9][0-9]{7,14}$')
+        && data.whatsappOptIn is bool
+        && data.whatsappConsentAt is string
+        && data.whatsappConsentAt.size() <= 40;
+    }
+
     // ── User profile ──────────────────────────────────────────────────────────
     // Stored at /users/{uid}/profile/main (single document per user).
     // Owner may read and write. Admin may read any profile.
@@ -38,15 +46,23 @@ service cloud.firestore {
           'displayName', 'focusAreas', 'ageRange', 'onboardingComplete',
           'streak', 'lastActive', 'emailOptIn', 'lastReminderSent',
           'pushNotificationsEnabled', 'pushToken', 'lastClarityCardSeen',
-          'currentIntention', 'intentionSetAt', 'intentionSurfacedAt', 'updatedAt'
-        ]);
+           'currentIntention', 'intentionSetAt', 'intentionSurfacedAt',
+           'whatsappNumber', 'whatsappOptIn', 'whatsappConsentAt', 'updatedAt'
+         ])
+        && (!request.resource.data.keys().hasAny([
+          'whatsappNumber', 'whatsappOptIn', 'whatsappConsentAt'
+        ]) || hasValidWhatsAppContact(request.resource.data));
       allow update: if isOwner(uid)
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'displayName', 'focusAreas', 'ageRange', 'onboardingComplete',
           'streak', 'lastActive', 'emailOptIn', 'lastReminderSent',
           'pushNotificationsEnabled', 'pushToken', 'lastClarityCardSeen',
-          'currentIntention', 'intentionSetAt', 'intentionSurfacedAt', 'updatedAt'
-        ]);
+           'currentIntention', 'intentionSetAt', 'intentionSurfacedAt',
+           'whatsappNumber', 'whatsappOptIn', 'whatsappConsentAt', 'updatedAt'
+         ])
+        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny([
+          'whatsappNumber', 'whatsappOptIn', 'whatsappConsentAt'
+        ]) || hasValidWhatsAppContact(request.resource.data));
     }
 
     // ── Quiz results ──────────────────────────────────────────────────────────

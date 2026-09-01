@@ -21,6 +21,7 @@ import TermsOfService from './pages/TermsOfService'
 import Admin from './pages/Admin'
 import ClarityCard from './pages/ClarityCard'
 import IdleTimer from './components/IdleTimer'
+import WhatsAppPrompt from './components/WhatsAppPrompt'
 import './index.css'
 
 if ('serviceWorker' in navigator && import.meta.env.PROD) {
@@ -39,6 +40,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
           <SubscriptionProvider>
           <IdleTimer />
           <SupportButton />
+          <WhatsAppPrompt />
           <Routes>
             {/* Public routes */}
             <Route path="/" element={<Landing />} />

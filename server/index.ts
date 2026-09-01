@@ -780,6 +780,8 @@ app.get('/api/admin/users', async (req, res) => {
                 streak: profile.streak ?? 0,
                 lastActive: profile.lastActive ?? '',
                 emailOptIn: !!profile.emailOptIn,
+                 whatsappNumber: profile.whatsappNumber ?? '',
+                 whatsappOptIn: !!profile.whatsappOptIn,
               }
             : null,
           subscription: sub
