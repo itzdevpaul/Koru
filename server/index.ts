@@ -165,6 +165,8 @@ app.get('/api/diagnostics', (_req, res) => {
 
 // Keep the container deployment aligned with Vercel's browser security policy.
 app.use((req, res, next) => {
+  const requestId = req.header('X-Request-ID') || crypto.randomUUID()
+  res.setHeader('X-Request-ID', requestId)
   res.setHeader('Content-Security-Policy', "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self' https://pay.squadco.com https://sandbox-pay.squadco.com; script-src 'self' 'unsafe-inline' https://apis.google.com https://www.gstatic.com https://www.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://*.google.com https://securetoken.googleapis.com https://identitytoolkit.googleapis.com https://firebaseinstallations.googleapis.com https://firestore.googleapis.com https://api-d.squadco.com https://sandbox-api-d.squadco.com; frame-src 'self' https://*.firebaseapp.com https://*.google.com https://accounts.google.com https://pay.squadco.com https://sandbox-pay.squadco.com; worker-src 'self' blob:; manifest-src \'self\';")
   res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=(self), usb=(), interest-cohort=()')
   res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload')
