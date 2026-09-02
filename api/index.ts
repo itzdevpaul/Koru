@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { app } from '../server/index'
+import { app } from '../server/index.js'
 
 // Import the Express app statically so Vercel's Node builder bundles the
 // complete server into this single function. Dynamic imports of TypeScript
