@@ -586,9 +586,13 @@ export async function createAdminPromo(token: string, code: string, discountPerc
   const response = await fetch('/api/admin/promos/create', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-    body: JSON.stringify({ code, discountPercent, expiresAt }),
+    body: JSON.stringify({ code: code.trim().toUpperCase(), discountPercent, expiresAt }),
   })
-  const data = await response.json()
+  const text = await response.text()
+  let data: { error?: string; ok?: boolean } = {}
+  try { data = JSON.parse(text) as typeof data } catch {
+    throw new Error(`Promo service returned an unexpected response (${response.status}). Please refresh and try again.`)
+  }
   if (!response.ok) throw new Error(data.error ?? 'Could not create promo code')
 }
 
@@ -648,7 +652,7 @@ export async function markNotificationRead(uid: string, id: string): Promise<voi
   await updateDoc(doc(db, 'users', uid, 'notifications', id), { read: true })
 }
 
-// ── Check-ins ────────────────────────────────────────────────────────────────
+// ── Check-ins ───────────────���────────────────────────────────────────────────
 
 export type MoodKey = 'thriving' | 'good' | 'okay' | 'low' | 'rough'
 
