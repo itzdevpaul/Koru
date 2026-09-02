@@ -18,7 +18,7 @@ import Upgrade from './pages/Upgrade'
 import PaymentReturn from './pages/PaymentReturn'
 import PrivacyPolicy from './pages/PrivacyPolicy'
 import TermsOfService from './pages/TermsOfService'
-import Admin from './pages/Admin'
+import AdminRoute from './components/AdminRoute'
 import ClarityCard from './pages/ClarityCard'
 import IdleTimer from './components/IdleTimer'
 import WhatsAppPrompt from './components/WhatsAppPrompt'
@@ -59,7 +59,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
             <Route path="/upgrade" element={<ProtectedRoute><Upgrade /></ProtectedRoute>} />
             <Route path="/payment/return" element={<ProtectedRoute><PaymentReturn /></ProtectedRoute>} />
             <Route path="/clarity-card" element={<ProtectedRoute><ClarityCard /></ProtectedRoute>} />
-            <Route path="/admin" element={<Admin />} />
+            <Route path="/admin" element={<AdminRoute />} />
 
             {/* Fallback */}
             <Route path="*" element={<Navigate to="/" replace />} />
