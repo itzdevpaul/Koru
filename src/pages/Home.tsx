@@ -7,6 +7,7 @@ import { logOut, getQuizResults, updateStreak, getStreakFreezesRemaining, getUse
 import { generateCheckInShareImage, shareOrDownloadImage } from '../utils/shareImage'
 import { quizzes, insightCombinations } from '../data/quizzes'
 import AdModal from '../components/AdModal'
+import FollowKoruModal from '../components/FollowKoruModal'
 import PatternMirrorCard from '../components/PatternMirrorCard'
 import MoodQuizMatcher from '../components/MoodQuizMatcher'
 import FutureSelfCard from '../components/FutureSelfCard'
@@ -28,6 +29,8 @@ export default function Home() {
   const [streak, setStreak] = useState(0)
   const [expiryDismissed, setExpiryDismissed] = useState(false)
   const [showStreakPrompt, setShowStreakPrompt] = useState(false)
+  const [showFollowPrompt, setShowFollowPrompt] = useState(false)
+  const [followCancelCooldown, setFollowCancelCooldown] = useState(5)
 
   // ── Ad modal ──
   const [activeAd, setActiveAd] = useState<Ad | null>(null)
@@ -73,6 +76,26 @@ export default function Home() {
   const [moodMatches, setMoodMatches] = useState<MoodMatch[]>([])
 
   const firstName = user?.displayName?.split(' ')[0] ?? 'there'
+
+  useEffect(() => {
+    if (!user || isPro || subLoading) return
+    const timer = window.setTimeout(() => {
+      setShowFollowPrompt(true)
+      setFollowCancelCooldown(5)
+    }, 5000)
+    return () => window.clearTimeout(timer)
+  }, [user, isPro, subLoading])
+
+  useEffect(() => {
+    if (!showFollowPrompt || followCancelCooldown <= 0) return
+    const timer = window.setInterval(() => setFollowCancelCooldown(value => Math.max(0, value - 1)), 1000)
+    return () => window.clearInterval(timer)
+  }, [showFollowPrompt, followCancelCooldown])
+
+  function dismissFollowPrompt() {
+    if (followCancelCooldown > 0) return
+    setShowFollowPrompt(false)
+  }
 
   useEffect(() => {
     if (!user) return
@@ -292,8 +315,9 @@ export default function Home() {
   }, [streak, isPro, subLoading])
 
   return (
-    <div className="min-h-screen" style={{ background: c.bg, transition: 'background 0.25s' }}>
-      {/* Ad modal — free users only, once per session */}
+  <div className="min-h-screen" style={{ background: c.bg, transition: 'background 0.25s' }}>
+  {showFollowPrompt && !isPro && <FollowKoruModal onCancel={dismissFollowPrompt} cancelCooldown={followCancelCooldown} />}
+  {/* Ad modal — free users only, once per session */}
       {activeAd && !adDismissed && !isPro && (
         <AdModal ad={activeAd} onDismiss={handleAdDismiss} />
       )}
