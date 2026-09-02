@@ -1,8 +1,9 @@
 import express, { type Request } from 'express'
 import crypto from 'node:crypto'
 import { Resend } from 'resend'
-import { initializeApp, cert, getApps, type App } from 'firebase-admin/app'
 import { getAuth } from 'firebase-admin/auth'
+import { getAdminApp } from '../api/_lib/admin.js'
+import { initiateSquadTransaction, verifySquadTransaction, squadBase, getSquadSecret } from '../api/_lib/squad.js'
 import {
   FieldValue,
   Timestamp,
@@ -10,27 +11,6 @@ import {
   FieldPath,
 } from 'firebase-admin/firestore'
 import { getMessaging } from 'firebase-admin/messaging'
-
-// ── Firebase Admin init (lazy, only if credentials are present) ───────────────
-let _adminApp: App | null = null
-function getAdminApp(): App {
-  if (_adminApp) return _adminApp
-  if (getApps().length) { _adminApp = getApps()[0]; return _adminApp }
-  const raw = process.env.FIREBASE_SERVICE_ACCOUNT?.trim()
-  if (!raw) throw new Error('FIREBASE_SERVICE_ACCOUNT is not set')
-  let credential: Record<string, unknown>
-  try {
-    let parsed: unknown = JSON.parse(raw.startsWith('{') ? raw : Buffer.from(raw, 'base64').toString('utf8'))
-    if (typeof parsed === 'string') parsed = JSON.parse(parsed)
-    if (!parsed || typeof parsed !== 'object') throw new Error('invalid shape')
-    credential = parsed as Record<string, unknown>
-    if (typeof credential.private_key === 'string') credential.private_key = credential.private_key.replace(/\\n/g, '\n')
-  } catch {
-    throw new Error('FIREBASE_SERVICE_ACCOUNT is not a valid Firebase Admin service account')
-  }
-  _adminApp = initializeApp({ credential: cert(credential) })
-  return _adminApp
-}
 
 async function getAuthenticatedUser(req: Request) {
   const header = req.headers.authorization
@@ -168,6 +148,20 @@ const app = express()
 
 app.disable('x-powered-by')
 app.use(express.json())
+
+app.get('/api/health', (_req, res) => {
+  res.json({ status: 'ok', service: 'koru-api' })
+})
+
+app.get('/api/diagnostics', (_req, res) => {
+  const firebase = process.env.FIREBASE_SERVICE_ACCOUNT?.trim() || ''
+  const squad = process.env.SQUAD_SECRET_KEY?.trim() || ''
+  res.json({
+    firebase: { configured: Boolean(firebase), format: firebase.startsWith('{') ? 'json' : firebase ? 'base64' : 'missing' },
+    squad: { configured: Boolean(squad), environment: process.env.SQUAD_ENV !== 'sandbox' ? 'production' : 'sandbox' },
+    api: { configured: true },
+  })
+})
 
 // Keep the container deployment aligned with Vercel's browser security policy.
 app.use((req, res, next) => {
@@ -322,12 +316,6 @@ app.post('/api/send-weekly-wrapup', async (req, res) => {
 
 // ── Squad subscription ────────────────────────────────────────────────────────
 
-function squadBase() {
-  return process.env.SQUAD_ENV === 'prod'
-    ? 'https://api-d.squadco.com'
-    : 'https://sandbox-api-d.squadco.com'
-}
-
 app.post('/api/subscribe/price', async (req, res) => {
   try {
     const decoded = await getAuthenticatedUser(req)
@@ -416,7 +404,7 @@ app.post('/api/subscribe/initiate', async (req, res) => {
     const data = await squadRes.json()
 
     // Squad returns checkout_url in data.data; if absent, construct it from the ref
-    const isProd = process.env.SQUAD_ENV === 'prod'
+    const isProd = process.env.SQUAD_ENV !== 'sandbox'
     const checkoutUrl: string =
       data?.data?.checkout_url ??
       (isProd ? `https://pay.squadco.com/${ref}` : `https://sandbox-pay.squadco.com/${ref}`)
@@ -540,7 +528,7 @@ app.post('/api/unlock/initiate', async (req, res) => {
     })
 
     const data = await squadRes.json()
-    const isProd = process.env.SQUAD_ENV === 'prod'
+    const isProd = process.env.SQUAD_ENV !== 'sandbox'
     const checkoutUrl: string =
       data?.data?.checkout_url ??
       (isProd ? `https://pay.squadco.com/${ref}` : `https://sandbox-pay.squadco.com/${ref}`)
