@@ -9,9 +9,11 @@ export const PRICING = {
 }
 
 export function squadBase(): string {
-  return process.env.SQUAD_ENV === 'prod'
-    ? 'https://api-d.squadco.com'
-    : 'https://sandbox-api-d.squadco.com'
+  // Production is the safe default for the live Koru domain. Set SQUAD_ENV=sandbox
+  // explicitly for test deployments; never silently send live users to sandbox.
+  return process.env.SQUAD_ENV === 'sandbox'
+    ? 'https://sandbox-api-d.squadco.com'
+    : 'https://api-d.squadco.com'
 }
 
 export function getSquadSecret(): string {
