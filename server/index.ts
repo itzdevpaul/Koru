@@ -1,4 +1,4 @@
-import express, { type Application, type Request } from 'express'
+import express, { type Request } from 'express'
 import crypto from 'node:crypto'
 import { Resend } from 'resend'
 import { initializeApp, cert, getApps, type App } from 'firebase-admin/app'
@@ -164,7 +164,7 @@ async function notifyInviter(inviterUid: string, referralCount: number, rewardGr
   }
 }
 
-const app = express() as Application
+const app = express()
 
 app.disable('x-powered-by')
 app.use(express.json())

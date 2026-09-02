@@ -5,5 +5,5 @@ import { app } from '../server/index'
 // complete server into this single function. Dynamic imports of TypeScript
 // source files can be left unresolved in the deployed function bundle.
 export default function handler(req: VercelRequest, res: VercelResponse): unknown {
-  return app(req, res)
+  return app(req as never, res as never)
 }
