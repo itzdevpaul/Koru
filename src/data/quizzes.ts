@@ -34,6 +34,156 @@ export interface Quiz {
   results: QuizResultType[]
 }
 
+const makeBriefQuiz = (config: { id: string; emoji: string; title: string; description: string; category: string; pro?: boolean; mature?: boolean; labels: string[]; questions: [string, ...string[]][] }): Quiz => ({
+  id: config.id, emoji: config.emoji, title: config.title, description: config.description, category: config.category, estimatedMinutes: 5, pro: config.pro, mature: config.mature,
+  questions: config.questions.map((question, i) => ({ id: `q${i + 1}`, text: question[0], options: question.slice(1).map((text, j) => ({ id: String.fromCharCode(97 + j), text, scores: { [config.labels[j]]: 3 } })) })),
+  results: config.labels.map((id, i) => ({ id, title: ['The Pattern Noticer', 'The Careful Opener', 'The Direct One', 'The Self-Protector'][i] || 'Your Pattern', emoji: ['🪞', '🌿', '🗣️', '🛡️'][i] || '•', tagline: ['You notice what repeats.', 'You let trust earn its place.', 'You say the part others avoid.', 'You learned to keep yourself safe.'][i] || 'A pattern worth noticing.', description: ['You pay attention to the small repetitions: the promise, the pause, the change in tone. Seeing a pattern is useful, but it is not a verdict. Let what you notice become a question you can ask, not a label you have to carry.', 'You do not open every door at once. Trust grows through consistency, repair, and the feeling that your no will be respected. You may take time, but when you choose closeness it is deliberate.', 'You would rather have an honest conversation than perform calm. You name what is happening and make room for an answer, even when the answer may disappoint you.', 'You have learned to keep part of yourself near the exit. That instinct may have protected you before; it is worth noticing when protection is still needed and when it is simply familiar.'][i] || 'Your answers point to a pattern that deserves a closer look.', traits: ['Observant', 'Self-aware', 'Pattern-sensitive', 'Still learning'], color: ['#1B3B2B', '#3a6b4a', '#E07A5F', '#7a6aa0'][i] || '#1B3B2B', tagBg: ['rgba(162,191,166,0.25)', 'rgba(162,191,166,0.25)', 'rgba(224,122,95,0.15)', 'rgba(122,106,160,0.12)'][i] || 'rgba(162,191,166,0.25)' })),
+})
+
+const briefQuizzes: Quiz[] = [
+  makeBriefQuiz({ id: 'self-sabotage', emoji: '↩️', title: 'Are you self-sabotaging?', description: 'The quiet patterns that pull you away from the things you actually want.', category: 'Relationships & Mindset', pro: true, labels: ['noticing', 'slow-trust', 'direct', 'protective'], questions: [
+    ['You get close to something you wanted for months. You…', 'Notice the urge to create an escape hatch', 'Wait for it to prove it is real', 'Say what you are feeling', 'Find a reason it will not work'],
+    ['Someone responds warmly to you. You…', 'Wonder what you missed', 'Let the warmth build slowly', 'Receive it without testing it', 'Pull back before it changes'],
+    ['A good opportunity arrives at a bad time. You…', 'Ask what part of the timing is actually yours', 'Take time before committing', 'Discuss what would make it workable', 'Decline and feel relieved'],
+    ['When things are going well, your mind tends to…', 'Search for the catch', 'Stay interested but cautious', 'Enjoy it and remain honest', 'Prepare for the ending'],
+    ['You make a mistake with someone important. You…', 'Watch what the repair tells you', 'Need time before returning', 'Apologise and address it', 'Consider leaving first'],
+    ['You are asked what you want. You…', 'Notice how quickly you dismiss it', 'Need time to know', 'Answer plainly', 'Say you do not need anything'],
+    ['The pattern you recognise most is…', 'Doubting good things', 'Keeping people at a distance', 'Avoiding silence in hard talks', 'Leaving before being left'],
+    ['A useful next question for you is…', 'What am I protecting myself from?', 'What would consistency look like?', 'What have I not said?', 'Is this caution still necessary?'],
+  ] }),
+  makeBriefQuiz({ id: 'trust-style', emoji: '🗝️', title: "What's your trust style?", description: 'How long it takes you to trust someone, and what breaks it once it is there.', category: 'Relationships & Mindset', pro: true, labels: ['noticing', 'slow-trust', 'direct', 'protective'], questions: [
+    ['A new person is kind to you consistently. You…', 'Watch whether kindness holds when it costs them', 'Let trust grow in small steps', 'Tell them what helps you feel safe', 'Keep the relationship light'],
+    ['They cancel plans twice. You…', 'Notice the pattern before reacting', 'Wait for a clear explanation', 'Ask directly what is happening', 'Stop making plans with them'],
+    ['Someone shares something vulnerable with you. You…', 'Notice how they handle your vulnerability too', 'Share a little when ready', 'Meet honesty with honesty', 'Appreciate it but keep your distance'],
+    ['What breaks trust fastest is…', 'Words that do not match behaviour', 'Inconsistency over time', 'Refusing to talk about harm', 'Making you depend on them'],
+    ['When trust is damaged, you…', 'Look for the repeated behaviour', 'Need time and evidence', 'Name the breach', 'Close the door quietly'],
+    ['You know trust is growing when…', 'You stop scanning for the shift', 'Their actions stay predictable', 'You can ask difficult questions', 'You do not need to reveal much'],
+    ['A promise matters most when…', 'It is kept without reminders', 'It survives an inconvenient day', 'It is discussed when broken', 'You can keep your own options'],
+    ['Your trust tends to be…', 'Observant', 'Earned slowly', 'Built through candour', 'Hard to regain once lost'],
+  ] }),
+  makeBriefQuiz({ id: 'let-down-response', emoji: '🫗', title: 'How do you handle being let down?', description: 'What you actually do when someone does not show up for you the way you needed.', category: 'Relationships & Mindset', pro: true, labels: ['noticing', 'slow-trust', 'direct', 'protective'], questions: [
+    ['They forget something important to you. You…', 'Notice whether this is unusual', 'Need a little time before responding', 'Tell them the impact plainly', 'Decide not to need them next time'],
+    ['Someone says they will help, then disappears. You…', 'Look at what they usually do', 'Wait before deciding what it means', 'Ask what happened', 'Handle it alone from now on'],
+    ['After being disappointed, you want to…', 'Understand the pattern', 'See whether repair is possible', 'Have the conversation', 'Reduce what you expect'],
+    ['The hardest part is usually…', 'Knowing whether to trust the pattern', 'Letting yourself hope again', 'Saying how much it mattered', 'Feeling exposed for needing them'],
+    ['A sincere apology makes you…', 'Watch for changed behaviour', 'Let the repair take time', 'Explain what needs to change', 'Accept it without reopening the door'],
+    ['When you need someone, you tend to…', 'Check whether they have capacity', 'Ask carefully', 'Ask clearly', 'Try not to need anyone'],
+    ['Resentment shows up when…', 'The same disappointment repeats', 'You keep waiting for consistency', 'You have not said the truth', 'You expected yourself to cope alone'],
+    ['What you want most after a let-down is…', 'A clear picture', 'Reliable follow-through', 'An honest conversation', 'More distance'],
+  ] }),
+  makeBriefQuiz({ id: 'safe-being-yourself', emoji: '🪟', title: 'Do you feel safe being yourself with them?', description: 'An honest look at whether the relationship makes room for who you really are.', category: 'Relationships & Mindset', pro: true, labels: ['noticing', 'slow-trust', 'direct', 'protective'], questions: [
+    ['You share an opinion they dislike. You…', 'Notice whether disagreement changes the room', 'Choose a small truth first', 'Stay with the disagreement', 'Decide silence is safer'],
+    ['You are tired and need space. You…', 'Watch how they respond to the boundary', 'Ask gently and see what happens', 'Say it directly', 'Disappear before explaining'],
+    ['You make a joke that does not land. You…', 'Notice whether repair is possible', 'Wait for the tension to pass', 'Name the awkwardness', 'Stop showing that side of yourself'],
+    ['You feel most like yourself when…', 'You do not have to monitor every word', 'Your differences are allowed gradually', 'You can be honest without punishment', 'You have a clear way out'],
+    ['When you say no, they…', 'Show you who they are in the response', 'Need time to adjust', 'Respect the answer', 'Make you regret saying it'],
+    ['You hide a part of yourself because…', 'You are watching for the consequence', 'You are not ready yet', 'The relationship has not made room for it', 'It feels safer not to be known'],
+    ['After time together, you feel…', 'Clearer about the dynamic', 'Slowly more open', 'Able to name what is true', 'Relieved to be alone'],
+    ['The question you most need to ask is…', 'What happens when I disagree?', 'Can trust grow here?', 'Can I say this plainly?', 'Am I shrinking to stay?'],
+  ] }),
+  makeBriefQuiz({ id: 'vulnerability-style', emoji: '🫧', title: "What's your vulnerability style?", description: 'How open you actually get once things become physical, and what holds you back.', category: 'Sex & Intimacy', mature: true, labels: ['noticing', 'slow-trust', 'direct', 'protective'], questions: [
+    ['After intimacy, you want to…', 'Notice what changed between you', 'Stay close and let trust settle', 'Talk about how it felt', 'Have space immediately'],
+    ['When someone asks what you want, you…', 'Notice what your body already knows', 'Answer when safety is established', 'Say it clearly', 'Deflect or let them guess'],
+    ['You feel exposed when…', 'Someone sees the feeling behind the performance', 'You do not know how they will respond', 'You say the thing out loud', 'They want more closeness than you do'],
+    ['The thing that helps you open is…', 'Consistency', 'Time', 'Curiosity and directness', 'Control over the pace'],
+    ['If something does not feel right, you…', 'Pay attention to the signal', 'Slow everything down', 'Say stop or change course', 'Go along and leave later'],
+    ['After sharing a fantasy, you…', 'Watch how it is received', 'Need reassurance', 'Invite an honest conversation', 'Wish you had kept it private'],
+    ['Physical closeness feels best when…', 'You can stay aware of yourself', 'Trust is already present', 'You can communicate in real time', 'You can choose when it ends'],
+    ['Your edge with vulnerability is…', 'Naming what you notice', 'Letting someone earn access', 'Not softening the truth', 'Staying present after opening'],
+  ] }),
+  makeBriefQuiz({ id: 'intimacy-rejection', emoji: '🌙', title: 'How do you handle rejection in intimacy?', description: 'What happens for you in the moment your desire is not matched.', category: 'Sex & Intimacy', mature: true, labels: ['noticing', 'slow-trust', 'direct', 'protective'], questions: [
+    ['You initiate and they are not interested. You…', 'Notice what you make it mean', 'Give both of you time', 'Ask what is going on without pressure', 'Decide not to initiate again'],
+    ['The first feeling is usually…', 'A sharp change in self-image', 'Uncertainty', 'Disappointment you can name', 'The urge to leave the moment'],
+    ['You want reassurance. You…', 'Notice whether you are asking for closeness or proof', 'Wait until the moment feels safe', 'Ask directly', 'Pretend you do not care'],
+    ['Afterward, you tend to…', 'Review every detail', 'Need tenderness and time', 'Talk when both are calm', 'Create distance'],
+    ['A kind no feels different because…', 'It gives you information without shame', 'It leaves room for later closeness', 'It is clear', 'It still feels like exposure'],
+    ['You worry rejection means…', 'You are no longer desirable', 'The connection is changing', 'There is something to discuss', 'You misread the whole relationship'],
+    ['What helps most is…', 'Remembering one moment is not a verdict', 'A steady aftercare ritual', 'Plain language', 'Being able to leave without drama'],
+    ['Your growth edge is…', 'Separating desire from worth', 'Letting closeness survive a no', 'Saying what you need afterward', 'Not disappearing to regain control'],
+  ] }),
+]
+
+const newQuizLibrary: Quiz[] = [
+  ...briefQuizzes,
+  {
+    id: 'decision-making-style', emoji: '🧭', title: "What's your decision-making style?",
+    description: 'How you choose when nothing feels obvious: fast and instinctive, or slow until it feels certain.', category: 'Identity & Personal Growth', estimatedMinutes: 4,
+    questions: [
+      ['You get two good offers and both expire tonight. You…', ['Pick the one that gives you energy', 'List the trade-offs before choosing', 'Ask someone you trust what they see', 'Choose the safer option and move on']],
+      ['A friend asks where dinner should be in thirty minutes. You…', ['Name the first place that sounds good', 'Open every menu before answering', 'Ask what they are in the mood for', 'Suggest the place you already know']],
+      ['You realise halfway through a purchase that you may not need it. You…', ['Trust the feeling and put it back', 'Compare reviews and return policies', 'Ask whether it fits your actual life', 'Buy it because changing course feels worse']],
+      ['A plan changes while everyone is waiting for your answer. You…', ['Decide quickly and adapt later', 'Need a little time to recalculate', 'Check how the change affects everyone', 'Stick with the original plan']],
+      ['When you regret a choice, it is usually because you…', ['Ignored your first instinct', 'Missed information you could have checked', 'Did not consider someone important', 'Took a risk when certainty was available']],
+      ['You are choosing between a known job and an unfamiliar opportunity. You…', ['Follow the pull toward the unfamiliar', 'Build a spreadsheet of likely outcomes', 'Talk it through with people affected', 'Keep the job until the new one is proven']],
+      ['You have ten minutes to solve a problem at work. You…', ['Make the best call and start', 'Find the one fact that changes the answer', 'Get the person closest to it involved', 'Use the last solution that worked']],
+      ['After deciding, you feel most settled when…', ['The choice felt like yours', 'The reasoning holds up', 'The people involved feel considered', 'The risk is contained']],
+    ].map((question, i) => ({ id: `q${i + 1}`, text: question[0] as string, options: question.slice(1).map((t, j) => ({ id: String.fromCharCode(97 + j), text: t as string, scores: { instinctive: j === 0 ? 3 : 0, analytical: j === 1 ? 3 : 0, relational: j === 2 ? 3 : 0, cautious: j === 3 ? 3 : 0 } })) })),
+    results: [
+      { id: 'instinctive', title: 'The Fast Mover', emoji: '⚡', tagline: 'You decide, then learn.', description: 'You trust the signal that arrives before the explanation. That gets you moving while other people are still comparing options, though sometimes you only discover what you needed to know after you have already committed.', traits: ['Quick to act', 'Trusts first signals', 'Adaptable', 'Risk-tolerant'], color: '#1B3B2B', tagBg: 'rgba(162,191,166,0.25)' },
+      { id: 'analytical', title: 'The Evidence Builder', emoji: '🔎', tagline: 'You want the choice to make sense.', description: 'You do not need perfect certainty, but you want to know what you are standing on. Your strength is seeing the detail that prevents avoidable mistakes; the cost is that more information can become another way to wait.', traits: ['Thorough', 'Pattern-aware', 'Measured', 'Detail-led'], color: '#3a6b4a', tagBg: 'rgba(162,191,166,0.25)' },
+      { id: 'relational', title: 'The Room Reader', emoji: '🫶', tagline: 'People belong in the decision.', description: 'You notice the human consequences of a choice almost immediately. You make decisions with care, but can sometimes give other people’s reactions more authority than your own preference.', traits: ['Considerate', 'Empathetic', 'Collaborative', 'People-aware'], color: '#7a6aa0', tagBg: 'rgba(122,106,160,0.12)' },
+      { id: 'cautious', title: 'The Risk Keeper', emoji: '🛡️', tagline: 'You protect what already works.', description: 'You are good at spotting what a decision could cost. Stability is not laziness for you; it is a deliberate value. The edge is noticing when keeping things safe has quietly become keeping them the same.', traits: ['Practical', 'Steady', 'Risk-aware', 'Reliable'], color: '#E07A5F', tagBg: 'rgba(224,122,95,0.15)' },
+    ],
+  },
+  {
+    id: 'rejection-response', emoji: '🚪', title: 'How do you handle rejection?', description: 'What actually happens in your head the moment you are told no.', category: 'Identity & Personal Growth', estimatedMinutes: 4,
+    questions: [
+      ['You send a message and see it was read but not answered. You…', ['Assume it is about you', 'Replay the message for clues', 'Give them room and carry on', 'Decide you will not message again']],
+      ['You are turned down for something you wanted. The first thought is…', ['I should have tried harder', 'What exactly did I miss?', 'That hurts, but it is information', 'I knew this would happen']],
+      ['Someone chooses another person for an opportunity. You…', ['Feel the comparison immediately', 'Look for the practical reason', 'Congratulate them, then process privately', 'Withdraw before they can see it got to you']],
+      ['After a no, you are most likely to…', ['Try to prove them wrong', 'Ask for useful feedback', 'Take a day and return to your life', 'Stop wanting the thing altogether']],
+      ['A date says they did not feel a spark. You…', ['Wonder what was wrong with you', 'Analyse what happened between you', 'Accept that fit cannot be forced', 'Tell yourself dating is not worth it']],
+      ['When rejection feels unfair, you…', ['Push back quickly', 'Collect evidence that it was unfair', 'Say what you needed to say once', 'Go quiet and remember it for a long time']],
+      ['You risk asking for more at work. If the answer is no…', ['Ask again in a different way', 'Find out what would change the answer', 'Decide whether the role still fits', 'Stop asking for things there']],
+      ['The part that lingers longest is…', ['The hit to your confidence', 'The unanswered question', 'The loss of the possibility', 'The feeling of being exposed']],
+    ].map((question, i) => ({ id: `q${i + 1}`, text: question[0] as string, options: question.slice(1).map((t, j) => ({ id: String.fromCharCode(97 + j), text: t as string, scores: { bruised: j === 0 ? 3 : 0, investigating: j === 1 ? 3 : 0, recovering: j === 2 ? 3 : 0, guarded: j === 3 ? 3 : 0 } })) })),
+    results: [
+      { id: 'bruised', title: 'The Prover', emoji: '🔥', tagline: 'No makes you want to become undeniable.', description: 'Rejection lands on your sense of worth, then turns into motion. You can use disappointment as fuel, but proving yourself to people who already chose not to see you can become an expensive habit.', traits: ['Driven', 'Competitive with self', 'Sensitive to comparison', 'Persistent'], color: '#E07A5F', tagBg: 'rgba(224,122,95,0.15)' },
+      { id: 'investigating', title: 'The Meaning-Maker', emoji: '🧩', tagline: 'You need to understand the no.', description: 'You look for the missing piece: timing, fit, delivery, context. That curiosity helps you learn without collapsing into shame, unless analysis becomes a way to keep the moment open long after it is over.', traits: ['Reflective', 'Curious', 'Improvement-focused', 'Thoughtful'], color: '#3a6b4a', tagBg: 'rgba(162,191,166,0.25)' },
+      { id: 'recovering', title: 'The Re-centred One', emoji: '🌱', tagline: 'It hurts. It does not define the day.', description: 'You let the disappointment be real without handing it the whole story. You can lose an opportunity and still return to yourself, which is a quieter kind of resilience than pretending the no did not matter.', traits: ['Grounded', 'Flexible', 'Self-respecting', 'Emotionally honest'], color: '#1B3B2B', tagBg: 'rgba(162,191,166,0.25)' },
+      { id: 'guarded', title: 'The Door Closer', emoji: '🔒', tagline: 'You would rather leave first than be refused again.', description: 'A no can feel less like one outcome and more like proof that wanting was unsafe. Pulling back protects you quickly, but it can also remove you from rooms where the answer might eventually be different.', traits: ['Self-protective', 'Private', 'Alert to disappointment', 'Slow to risk'], color: '#7a6aa0', tagBg: 'rgba(122,106,160,0.12)' },
+    ],
+  },
+  {
+    id: 'money-mindset', emoji: '₦', title: "What's your money mindset?", description: 'The story you built around money without realising it, and how it quietly drives your choices.', category: 'Identity & Personal Growth', estimatedMinutes: 4,
+    questions: [
+      ['You receive unexpected money. Your first move is to…', ['Save it before it disappears', 'Give yourself permission to enjoy some', 'Put it toward something that grows', 'Use it to help someone close']],
+      ['At the end of a tight month, you usually…', ['Cut everything non-essential', 'Feel guilty about every purchase', 'Look for a smarter system', 'Ask someone for support if needed']],
+      ['A friend suggests an expensive weekend. You…', ['Check the number twice', 'Go, then worry about it later', 'Compare alternatives', 'Decline without explaining much']],
+      ['When you think about wealth, you picture…', ['A buffer against disaster', 'Freedom to say yes', 'A project you can build', 'Something that should be shared']],
+      ['You are most likely to spend on…', ['Things that last', 'A feeling you need right now', 'Tools that make life easier', 'People you care about']],
+      ['Someone owes you money. You…', ['Ask for it directly', 'Feel awkward bringing it up', 'Set a clear repayment plan', 'Let it go to avoid tension']],
+      ['The money lesson you heard most growing up was…', ['Always keep something back', 'You cannot take it with you', 'Work hard and create your own', 'Money changes how people treat you']],
+      ['Your biggest financial fear is…', ['Having no safety net', 'Missing out on life', 'Making the wrong long-term move', 'Having more while others struggle']],
+    ].map((question, i) => ({ id: `q${i + 1}`, text: question[0] as string, options: question.slice(1).map((t, j) => ({ id: String.fromCharCode(97 + j), text: t as string, scores: { security: j === 0 ? 3 : 0, enjoyment: j === 1 ? 3 : 0, growth: j === 2 ? 3 : 0, generosity: j === 3 ? 3 : 0 } })) })),
+    results: [
+      { id: 'security', title: 'The Safety Builder', emoji: '🏦', tagline: 'A buffer lets you breathe.', description: 'Money is most valuable to you when it creates room: room for emergencies, change, and sleep. You are careful for a reason, though caution can make it hard to spend on the life the buffer was meant to protect.', traits: ['Prepared', 'Practical', 'Future-aware', 'Security-led'], color: '#1B3B2B', tagBg: 'rgba(162,191,166,0.25)' },
+      { id: 'enjoyment', title: 'The Present-Liver', emoji: '🎈', tagline: 'A life postponed is still a life.', description: 'You see money as permission to experience things now, not only later. Your instinct keeps life from becoming one long waiting room; the question is whether tomorrow gets a vote in today’s spending.', traits: ['Spontaneous', 'Experience-led', 'Generous to self', 'Present-focused'], color: '#E07A5F', tagBg: 'rgba(224,122,95,0.15)' },
+      { id: 'growth', title: 'The Opportunity Seeker', emoji: '📈', tagline: 'You want money to do something.', description: 'You look for leverage: a course, a tool, a business idea, a move that changes the next set of options. You are willing to be strategic with money, but may undervalue what cannot be measured as progress.', traits: ['Strategic', 'Ambitious', 'Resourceful', 'Long-view'], color: '#3a6b4a', tagBg: 'rgba(162,191,166,0.25)' },
+      { id: 'generosity', title: 'The Provider', emoji: '🤲', tagline: 'Having enough means people are okay.', description: 'Money is relational for you. You notice who needs help and often make yourself the answer before anyone asks. Care is real here, but so is the need to keep some of your resources, time, and choices for yourself.', traits: ['Giving', 'Responsible', 'People-centred', 'Prone to overextending'], color: '#7a6aa0', tagBg: 'rgba(122,106,160,0.12)' },
+    ],
+  },
+  {
+    id: 'pressure-response', emoji: '⏱️', title: 'How do you show up under pressure?', description: 'Who you become when there is no time to think it through.', category: 'Identity & Personal Growth', estimatedMinutes: 4,
+    questions: [
+      ['A deadline moves forward by two days. You…', ['Take command of the next step', 'Make a short list and start', 'Ask who can share the load', 'Go quiet and work alone']],
+      ['Someone looks to you during a tense moment. You…', ['Say what needs to happen', 'Focus on the immediate practical task', 'Check what everyone needs', 'Need a beat before speaking']],
+      ['When you make a mistake under pressure, you…', ['Correct it visibly and keep moving', 'Trace the cause quickly', 'Tell the people affected', 'Feel it privately and hide the wobble']],
+      ['Your body under stress tends to…', ['Speed up', 'Narrow in on one task', 'Notice everyone else first', 'Freeze until there is a clear route']],
+      ['A plan collapses in public. You…', ['Improvise out loud', 'Find the smallest workable replacement', 'Keep the room calm', 'Step back to regain control']],
+      ['The kind of help you accept best is…', ['Someone taking a task', 'Someone bringing useful information', 'Someone staying emotionally present', 'Someone giving you space']],
+      ['After the crisis ends, you…', ['Start on the next thing', 'Review what could improve', 'Check in with the people involved', 'Need to disappear for a while']],
+      ['What pressure reveals most clearly is your…', ['Leadership instinct', 'Problem-solving instinct', 'Care for the group', 'Need for control']],
+    ].map((question, i) => ({ id: `q${i + 1}`, text: question[0] as string, options: question.slice(1).map((t, j) => ({ id: String.fromCharCode(97 + j), text: t as string, scores: { commander: j === 0 ? 3 : 0, fixer: j === 1 ? 3 : 0, stabiliser: j === 2 ? 3 : 0, retreating: j === 3 ? 3 : 0 } })) })),
+    results: [
+      { id: 'commander', title: 'The Front-Foot Leader', emoji: '🧱', tagline: 'You get clearer when it gets harder.', description: 'Pressure gives you a role and a direction. You step forward, name the next move, and make decisions while the room is still reacting. The risk is carrying responsibility that belonged to more than one person.', traits: ['Decisive', 'Commanding', 'Fast-moving', 'May over-carry'], color: '#1B3B2B', tagBg: 'rgba(162,191,166,0.25)' },
+      { id: 'fixer', title: 'The Practical Fixer', emoji: '🔧', tagline: 'Give you a problem and you find the handle.', description: 'You shrink chaos into something workable. Details become useful rather than overwhelming, and progress is how you steady yourself. You can miss the emotional aftermath when the practical problem is already solved.', traits: ['Resourceful', 'Focused', 'Efficient', 'Solution-led'], color: '#3a6b4a', tagBg: 'rgba(162,191,166,0.25)' },
+      { id: 'stabiliser', title: 'The Human Anchor', emoji: '⚓', tagline: 'You keep the room from becoming the crisis.', description: 'You register the people inside the problem, not just the problem itself. Your steadiness helps others think. Remember that keeping everyone comfortable is not the same as keeping everyone safe.', traits: ['Calming', 'Attuned', 'Supportive', 'Group-aware'], color: '#7a6aa0', tagBg: 'rgba(122,106,160,0.12)' },
+      { id: 'retreating', title: 'The Quiet Processor', emoji: '🌘', tagline: 'You need a little silence to find your footing.', description: 'When pressure rises, you reduce the noise before you act. That pause can protect you from impulsive choices, but people may mistake your processing for indifference when what you need is a clear minute.', traits: ['Observant', 'Self-contained', 'Careful', 'Slow to react publicly'], color: '#E07A5F', tagBg: 'rgba(224,122,95,0.15)' },
+    ],
+  },
+]
+
 export const quizzes: Quiz[] = [
   // ── 1. Thinking Style ─────────────────────────────────────────────────────
   {
@@ -1309,6 +1459,9 @@ export const quizzes: Quiz[] = [
       },
     ],
   },
+
+  // ── New quizzes from Koru Quiz Content brief ───────────────────────────────
+  ...newQuizLibrary,
 ]
 
 // ── Insight combinations (thinking-style × what-drives-you) ──────────────────
