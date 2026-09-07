@@ -1,4 +1,5 @@
 import { initializeApp, getApps } from 'firebase/app'
+import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from 'firebase/firestore'
 import {
   getFirestore,
   collection,
@@ -29,6 +30,8 @@ import {
   GoogleAuthProvider,
   signInWithPopup,
   sendPasswordResetEmail,
+  setPersistence,
+  browserLocalPersistence,
 } from 'firebase/auth'
 import {
   deleteToken,
@@ -56,9 +59,21 @@ if (import.meta.env.DEV) {
 }
 
 const app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig)
-export const db = getFirestore(app)
+let firestore: ReturnType<typeof getFirestore>
+try {
+  firestore = initializeFirestore(app, {
+    localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
+  })
+} catch {
+  // Hot reload or unsupported browser: use the standard Firestore client.
+  firestore = getFirestore(app)
+}
+export const db = firestore
 export const auth = getAuth(app)
 export const googleProvider = new GoogleAuthProvider()
+void setPersistence(auth, browserLocalPersistence).catch(() => {
+  // Some private browsing modes do not permit persistent auth storage.
+})
 
 export type { User }
 export { onAuthStateChanged, signOut, sendPasswordResetEmail }

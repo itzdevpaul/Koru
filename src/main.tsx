@@ -21,8 +21,10 @@ import TermsOfService from './pages/TermsOfService'
 import AdminRoute from './components/AdminRoute'
 import ClarityCard from './pages/ClarityCard'
 import Journal from './pages/Journal'
+import Assistant from './pages/Assistant'
 import IdleTimer from './components/IdleTimer'
 import WhatsAppPrompt from './components/WhatsAppPrompt'
+import OfflineStatus from './components/OfflineStatus'
 import './index.css'
 
 if ('serviceWorker' in navigator && import.meta.env.PROD) {
@@ -42,6 +44,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
           <IdleTimer />
           <SupportButton />
           <WhatsAppPrompt />
+          <OfflineStatus />
           <Routes>
             {/* Public routes */}
             <Route path="/" element={<Landing />} />
@@ -61,6 +64,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
             <Route path="/payment/return" element={<ProtectedRoute><PaymentReturn /></ProtectedRoute>} />
             <Route path="/clarity-card" element={<ProtectedRoute><ClarityCard /></ProtectedRoute>} />
             <Route path="/journal" element={<ProtectedRoute><Journal /></ProtectedRoute>} />
+            <Route path="/assistant" element={<ProtectedRoute><Assistant /></ProtectedRoute>} />
             <Route path="/admin" element={<AdminRoute />} />
 
             {/* Fallback */}
