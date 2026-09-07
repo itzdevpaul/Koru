@@ -1234,11 +1234,14 @@ export default function Home() {
             🗒️
           </div>
           <div className="flex-1">
-            <p className="font-bold text-lg mb-1" style={{ fontFamily: F, color: c.forest }}>Journal — coming soon</p>
+            <p className="font-bold text-lg mb-1" style={{ fontFamily: F, color: c.forest }}>Journal</p>
             <p className="text-sm" style={{ fontFamily: I, color: c.body, lineHeight: 1.65 }}>
               Your private space for daily reflection, guided by your quiz results.
             </p>
           </div>
+          <button onClick={() => navigate('/journal')} className="rounded-xl px-4 py-2 text-sm font-bold" style={{ background: c.forest, color: '#fff' }}>
+            Open journal
+          </button>
         </div>
       </main>
     </div>

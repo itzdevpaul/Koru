@@ -418,6 +418,16 @@ async function authenticatedApi(path: string, body?: unknown): Promise<Response>
   })
 }
 
+export interface JournalEntry {
+  id: string
+  title: string
+  content: string
+  createdAt: string
+  linkedQuizId?: string
+  linkedCheckInDate?: string
+  linkedIntention?: string
+}
+
 export interface ReferralStatus {
   inviteCode: string
   referralCount: number
