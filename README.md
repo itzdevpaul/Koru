@@ -31,6 +31,7 @@ Public Firebase web configuration belongs in the client environment using the ex
 - `SQUAD_SECRET_KEY` — Squad server secret
 - `SQUAD_ENV` — `sandbox` for testing; omit or use another value for production
 - `RESEND_API_KEY` — required only for email routes
+- `GROQ_API_KEY_2` — server-only Groq key for the protected Koru assistant and journal insights
 - `ADMIN_EMAIL` — email allowed to use admin routes
 - `ADMIN_PASSWORD` — required only for the legacy admin login route
 
@@ -42,11 +43,18 @@ Public Firebase web configuration belongs in the client environment using the ex
 - `src/data/deepReports.ts` — gated deep-report content
 - `src/firebase.ts` — browser Firebase helpers and API client functions
 - `src/components/` — reusable UI and application flows
+- `public/sw.js` — offline shell and categorized browser push handling
 - `server/index.ts` — Express API routes and security middleware
 - `api/_lib/admin.ts` — lazy Firebase Admin initialization
 - `api/_lib/squad.ts` — isolated Squad configuration and payment helpers
 - `firestore.rules` — client Firestore access rules
 - `vercel.json` — Vercel rewrites, cache policy, and security headers
+
+## Browser notifications
+
+Users can enable browser push notifications from Profile and choose four categories independently: daily check-in reminders, private journal prompts, quiz/report nudges, and streak/progress updates. Existing users default to all categories enabled when they have already opted into push; preferences are stored on their own profile document. Push payloads contain only a short message and a safe destination path—never journal or reflection text.
+
+Firebase Cloud Messaging requires `VITE_FIREBASE_VAPID_KEY` in the client environment, plus a registered Firebase Web Push certificate key. The server sends through Firebase Admin using `FIREBASE_SERVICE_ACCOUNT`. Invalid registration tokens are automatically removed.
 
 ## Payments
 

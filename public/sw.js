@@ -15,14 +15,17 @@ self.addEventListener('push', (event) => {
   const title = notification.title || 'Koru'
   const body = notification.body || 'A moment for yourself is waiting.'
   const url = notification.url || payload.data?.url || '/home'
+  const category = payload.data?.category || notification.category || 'reflection'
+  const tag = `koru-${category}`
 
   event.waitUntil(
     self.registration.showNotification(title, {
       body,
       icon: '/apple-touch-icon.png',
       badge: '/favicon.svg',
-      tag: 'koru-reflection',
-      data: { url },
+      tag,
+      renotify: false,
+      data: { url, category },
     }),
   )
 })
