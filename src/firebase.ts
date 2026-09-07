@@ -1,4 +1,5 @@
 import { initializeApp, getApps } from 'firebase/app'
+import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check'
 import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from 'firebase/firestore'
 import {
   getFirestore,
@@ -59,6 +60,17 @@ if (import.meta.env.DEV) {
 }
 
 const app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig)
+const appCheckSiteKey = import.meta.env.VITE_FIREBASE_APPCHECK_SITE_KEY as string | undefined
+if (appCheckSiteKey && typeof window !== 'undefined') {
+  try {
+    initializeAppCheck(app, {
+      provider: new ReCaptchaV3Provider(appCheckSiteKey),
+      isTokenAutoRefreshEnabled: true,
+    })
+  } catch {
+    // App Check may already be initialized during Vite hot reload.
+  }
+}
 let firestore: ReturnType<typeof getFirestore>
 try {
   firestore = initializeFirestore(app, {
