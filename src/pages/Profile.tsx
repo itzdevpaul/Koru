@@ -44,6 +44,7 @@ export default function Profile() {
   const [ageRange, setAgeRange] = useState('')
   const [emailOptIn, setEmailOptIn] = useState(false)
   const [pushOptIn, setPushOptIn] = useState(false)
+  const [pushPreferences, setPushPreferences] = useState({ checkIns: true, journal: true, quizzes: true, progress: true })
 
   const [saving, setSaving] = useState(false)
   const [savedMsg, setSavedMsg] = useState('')
@@ -70,6 +71,12 @@ export default function Profile() {
           setAgeRange(p.ageRange || '')
           setEmailOptIn(p.emailOptIn ?? false)
           setPushOptIn(p.pushNotificationsEnabled ?? false)
+          setPushPreferences({
+            checkIns: p.pushCheckInReminders ?? true,
+            journal: p.pushJournalPrompts ?? true,
+            quizzes: p.pushQuizNudges ?? true,
+            progress: p.pushProgressUpdates ?? true,
+          })
         }
         setResults(r)
         setLoading(false)
@@ -97,6 +104,10 @@ export default function Profile() {
       focusAreas: focusAreas.length ? focusAreas : profile.focusAreas,
       ageRange: ageRange || profile.ageRange,
       emailOptIn,
+      pushCheckInReminders: pushPreferences.checkIns,
+      pushJournalPrompts: pushPreferences.journal,
+      pushQuizNudges: pushPreferences.quizzes,
+      pushProgressUpdates: pushPreferences.progress,
     })
     setSaving(false)
     setSavedMsg('Saved!')
@@ -407,6 +418,30 @@ export default function Profile() {
           </div>
           {pushMsg && (
             <p className="text-xs mt-3" style={{ fontFamily: I, color: c.body }}>{pushMsg}</p>
+          )}
+          {pushOptIn && (
+            <div className="mt-4 pt-4 space-y-3" style={{ borderTop: `1px solid ${c.cardBorder}` }}>
+              <p className="text-xs font-semibold" style={{ fontFamily: F, color: c.forest }}>Choose what Koru sends</p>
+              {([
+                ['checkIns', 'Daily check-in reminders'],
+                ['journal', 'Private journal prompts'],
+                ['quizzes', 'Quiz and report nudges'],
+                ['progress', 'Streak and progress updates'],
+              ] as const).map(([key, label]) => (
+                <label key={key} className="flex items-center justify-between gap-3 text-xs" style={{ fontFamily: I, color: c.body }}>
+                  <span>{label}</span>
+                  <input
+                    type="checkbox"
+                    checked={pushPreferences[key]}
+                    onChange={(event) => setPushPreferences(prev => ({ ...prev, [key]: event.target.checked }))}
+                    className="h-4 w-4 accent-[#1B3B2B]"
+                  />
+                </label>
+              ))}
+              <button onClick={handleSave} disabled={saving} className="text-xs font-semibold" style={{ color: c.forest }}>
+                {saving ? 'Saving…' : 'Save notification preferences'}
+              </button>
+            </div>
           )}
         </section>
 

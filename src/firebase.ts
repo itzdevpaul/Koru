@@ -177,6 +177,10 @@ export interface UserProfile {
   lastReminderSent?: string    // ISO date string YYYY-MM-DD
   pushNotificationsEnabled?: boolean
   pushToken?: string
+  pushCheckInReminders?: boolean
+  pushJournalPrompts?: boolean
+  pushQuizNudges?: boolean
+  pushProgressUpdates?: boolean
   lastClarityCardSeen?: string // ISO month string YYYY-MM
   // Future self intentions
   currentIntention?: string    // text the user wrote to their future self
@@ -233,6 +237,11 @@ function sanitizeProfile(data: Partial<UserProfile>): Partial<UserProfile> {
   if ('whatsappNumber' in safe) safe.whatsappNumber = normalizeWhatsAppNumber(safe.whatsappNumber)
   if ('whatsappOptIn' in safe) safe.whatsappOptIn = Boolean(safe.whatsappOptIn)
   if ('whatsappConsentAt' in safe) safe.whatsappConsentAt = sanitizeText(safe.whatsappConsentAt, 40)
+  if ('pushNotificationsEnabled' in safe) safe.pushNotificationsEnabled = Boolean(safe.pushNotificationsEnabled)
+  if ('pushCheckInReminders' in safe) safe.pushCheckInReminders = Boolean(safe.pushCheckInReminders)
+  if ('pushJournalPrompts' in safe) safe.pushJournalPrompts = Boolean(safe.pushJournalPrompts)
+  if ('pushQuizNudges' in safe) safe.pushQuizNudges = Boolean(safe.pushQuizNudges)
+  if ('pushProgressUpdates' in safe) safe.pushProgressUpdates = Boolean(safe.pushProgressUpdates)
   // Referral totals, rewards, and ownership links are server-managed.
   delete safe.referralCount
   delete safe.referralRewardGranted

@@ -1226,9 +1226,15 @@ async function maybeSendDailyPush(): Promise<void> {
         const profileData = profileDoc.data()
         const firstName = String(profileData.displayName ?? '').split(' ')[0] || 'there'
         const uid = profileDoc.ref.parent.parent?.id
-        const hasCheckedInToday = profileData.lastActive === dateKey
+  const hasCheckedInToday = profileData.lastActive === dateKey
+  const preferences = {
+    checkIns: profileData.pushCheckInReminders !== false,
+    journal: profileData.pushJournalPrompts !== false,
+    quizzes: profileData.pushQuizNudges !== false,
+    progress: profileData.pushProgressUpdates !== false,
+  }
 
-        // ── Adaptive nudge: check recent check-ins for low-energy pattern ──
+  // ── Adaptive nudge: check recent check-ins for low-energy pattern ──
         let adaptiveTitle: string | null = null
         let adaptiveBody: string | null = null
         if (uid) {
@@ -1251,29 +1257,40 @@ async function maybeSendDailyPush(): Promise<void> {
         }
 
         // Time-aware, empathetic message
-        let title: string
-        let body: string
-        if (adaptiveTitle) {
-          title = adaptiveTitle
-          body = adaptiveBody!
-        } else if (hasCheckedInToday) {
-          title = 'Thanks for showing up today 🌿'
-          body = `${firstName}, you checked in today. Come back when you're ready to reflect more.`
-        } else if (hour >= 19) {
-          title = `Hey ${firstName}, it's evening 🌙`
-          body = `Ready to log today's energy? A quick check-in takes 30 seconds.`
-        } else if (hour >= 12) {
-          title = `Hey ${firstName} 👋`
-          body = `How's your day going? Take a moment to check in with yourself.`
-        } else {
-          title = `Good morning ${firstName} 🌅`
-          body = `Start your day with a quick check-in. What's one thing you're carrying today?`
-        }
+  let title: string
+  let body: string
+  let category: string
+  if (adaptiveTitle && preferences.checkIns) {
+    category = 'check-in'
+    title = adaptiveTitle
+    body = adaptiveBody!
+  } else if (preferences.progress && Number(profileData.streak ?? 0) >= 3 && !hasCheckedInToday) {
+    category = 'progress'
+    title = `${firstName}, your streak is waiting`
+    body = `${profileData.streak} days of showing up. Keep the thread going with one honest check-in.`
+  } else if (preferences.journal && profileData.currentIntention && hasCheckedInToday) {
+    category = 'journal'
+    title = `A quiet question for you, ${firstName}`
+    body = `Your intention is still here. Open your journal and write what feels different today.`
+  } else if (preferences.quizzes && !hasCheckedInToday) {
+    category = 'quiz'
+    title = `One curious question, ${firstName}`
+    body = `There may be a new part of yourself to notice. Explore a Koru quiz when you have a moment.`
+  } else if (preferences.checkIns && !hasCheckedInToday) {
+    category = 'check-in'
+    title = hour >= 19 ? `Good evening, ${firstName}` : `Good morning, ${firstName}`
+    body = hour >= 19 ? `Before the day closes, what did your energy need today?` : `Start gently: what are you carrying into today?`
+  } else {
+    category = 'progress'
+    title = `Thanks for showing up, ${firstName}`
+    body = `Your Koru space is here whenever you are ready to reflect.`
+  }
+
 
         return {
           token,
           notification: { title, body },
-          data: { url: '/home', date: dateKey },
+          data: { url: category === 'journal' ? '/journal' : category === 'quiz' ? '/home' : '/home', date: dateKey, category },
           webpush: {
             fcmOptions: { link: `${appUrl}/home` },
             notification: {
