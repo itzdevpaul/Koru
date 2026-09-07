@@ -80,6 +80,27 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // ── Private journal ───────────────────────────────────────────────────────
+    // Journal text is encrypted in the browser before it is stored.
+    match /users/{uid}/journal/{entryId} {
+      allow read: if isOwner(uid) || isAdmin();
+      allow create: if isOwner(uid)
+        && request.resource.data.keys().hasOnly([
+          'title', 'contentEnc', 'linkedQuizId', 'linkedCheckInDate', 'linkedIntention', 'createdAt', 'updatedAt'
+        ])
+        && request.resource.data.title is string
+        && request.resource.data.title.size() <= 120
+        && request.resource.data.contentEnc is map
+        && request.resource.data.contentEnc.keys().hasOnly(['c', 'i'])
+        && request.resource.data.contentEnc.c is string
+        && request.resource.data.contentEnc.i is string;
+      allow update: if isOwner(uid)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'title', 'contentEnc', 'linkedQuizId', 'linkedCheckInDate', 'linkedIntention', 'updatedAt'
+        ]);
+      allow delete: if isOwner(uid) || isAdmin();
+    }
+
     // ── Subscription ──────────────────────────────────────────────────────────
     // Stored at /users/{uid}/subscription/main (single document per user).
     // Owner may read and write. Admin may read. Server-side Admin SDK handles

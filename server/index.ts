@@ -153,6 +153,47 @@ app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', service: 'koru-api' })
 })
 
+app.post('/api/journal/insight', async (req, res) => {
+  try {
+    const decoded = await getAuthenticatedUser(req)
+    const apiKey = process.env.GROQ_API_KEY_2
+    if (!apiKey) { res.status(503).json({ error: 'Journal insights are not configured.' }); return }
+
+    const input = req.body as { title?: unknown; content?: unknown; linkedQuizId?: unknown; linkedCheckInDate?: unknown; linkedIntention?: unknown }
+    const content = String(input.content ?? '').trim().slice(0, 5000)
+    if (!content) { res.status(400).json({ error: 'A journal entry is required.' }); return }
+
+    const context = [
+      `Title: ${String(input.title ?? '').slice(0, 120)}`,
+      `Linked quiz or result: ${String(input.linkedQuizId ?? '').slice(0, 120)}`,
+      `Linked check-in date: ${String(input.linkedCheckInDate ?? '').slice(0, 20)}`,
+      `Linked intention: ${String(input.linkedIntention ?? '').slice(0, 300)}`,
+      `Journal entry: ${content}`,
+    ].join('\\n')
+    const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'llama-3.3-70b-versatile',
+        temperature: 0.4,
+        max_tokens: 500,
+        messages: [
+          { role: 'system', content: 'You are Koru, a warm Nigerian self-reflection guide. Return a concise, non-clinical journal insight with exactly three short sections: Notice, Consider, Next gentle step. Never diagnose, predict, or claim certainty. Do not repeat private text unnecessarily. Encourage professional support if the entry suggests immediate danger.' },
+          { role: 'user', content: context },
+        ],
+      }),
+    })
+    const data = await groqResponse.json() as { choices?: Array<{ message?: { content?: string } }>; error?: { message?: string } }
+    if (!groqResponse.ok) { console.error('[Koru] Groq journal insight failed for', decoded.uid, data.error?.message); res.status(502).json({ error: 'The journal insight could not be generated.' }); return }
+    const insight = data.choices?.[0]?.message?.content?.trim()
+    if (!insight) { res.status(502).json({ error: 'The journal insight was empty.' }); return }
+    res.json({ insight: insight.slice(0, 3000) })
+  } catch (error) {
+    console.error('[Koru] Journal insight error:', error instanceof Error ? error.message : error)
+    res.status(401).json({ error: 'Your session could not be verified.' })
+  }
+})
+
 app.get('/api/diagnostics', (_req, res) => {
   const firebase = process.env.FIREBASE_SERVICE_ACCOUNT?.trim() || ''
   const squad = process.env.SQUAD_SECRET_KEY?.trim() || ''
