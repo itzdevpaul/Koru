@@ -1225,6 +1225,13 @@ export default function Home() {
           </section>
         )}
 
+        <section className="mb-6 rounded-3xl p-6 sm:p-8" style={{ background: c.card, border: `1px solid ${c.cardBorder}` }}>
+          <p className="text-xs font-semibold uppercase tracking-[0.2em]" style={{ color: c.muted }}>Koru assistant</p>
+          <h2 className="mt-2 text-xl font-bold" style={{ fontFamily: F, color: c.forest }}>Think through what is next.</h2>
+          <p className="mt-2 max-w-xl text-sm leading-6" style={{ fontFamily: I, color: c.body }}>Talk through a real decision, relationship, or transition and get grounded options without handing over the decision.</p>
+          <button onClick={() => navigate('/assistant')} className="mt-4 rounded-xl px-4 py-2 text-sm font-bold" style={{ background: c.forest, color: '#fff' }}>Open assistant</button>
+        </section>
+
         {/* ── Journal teaser ── */}
         <div
           className="rounded-3xl p-6 sm:p-8 flex flex-col sm:flex-row items-start sm:items-center gap-5"

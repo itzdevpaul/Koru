@@ -16,7 +16,17 @@ export default function SignIn() {
     e.preventDefault()
     setError('')
     setLoading(true)
-    const result = await signIn(email, password)
+    if (!navigator.onLine) {
+      setLoading(false)
+      setError('You are offline. Koru can keep an existing session open, but a new sign-in needs internet access.')
+      return
+    }
+    let result: Awaited<ReturnType<typeof signIn>>
+    try {
+      result = await signIn(email, password)
+    } catch {
+      result = { error: 'Sign-in could not reach Koru. Check your connection and try again.' }
+    }
     setLoading(false)
     if ('error' in result) {
       setError(result.error)

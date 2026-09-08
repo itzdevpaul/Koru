@@ -77,7 +77,16 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     isPro || unlockedQuizIds.includes(quizId),
   [isPro, unlockedQuizIds])
 
-  useEffect(() => { refresh() }, [refresh])
+  useEffect(() => {
+    void refresh()
+    const onFocus = () => { void refresh() }
+    window.addEventListener('focus', onFocus)
+    window.addEventListener('pageshow', onFocus)
+    return () => {
+      window.removeEventListener('focus', onFocus)
+      window.removeEventListener('pageshow', onFocus)
+    }
+  }, [refresh])
 
   return (
     <SubscriptionContext.Provider value={{ isPro, isExpired, expiresAt, daysLeft, unlockedQuizIds, loading, hasReportAccess, refresh }}>

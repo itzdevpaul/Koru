@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
@@ -23,6 +23,10 @@ export default function Journal() {
   const [saving, setSaving] = useState(false)
   const [analyzing, setAnalyzing] = useState(false)
   const [message, setMessage] = useState('')
+  const [recording, setRecording] = useState(false)
+  const [voiceUrl, setVoiceUrl] = useState('')
+  const recorderRef = useRef<MediaRecorder | null>(null)
+  const voiceChunksRef = useRef<Blob[]>([])
 
   useEffect(() => {
     if (!user) return
@@ -37,6 +41,35 @@ export default function Journal() {
       setLoading(false)
     }).catch(() => { setMessage('Your journal could not be loaded.'); setLoading(false) })
   }, [user])
+
+  async function toggleVoiceNote() {
+    if (recording) {
+      recorderRef.current?.stop()
+      setRecording(false)
+      return
+    }
+    if (!navigator.mediaDevices?.getUserMedia || !('MediaRecorder' in window)) {
+      setMessage('Voice notes are not supported in this browser.')
+      return
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      const recorder = new MediaRecorder(stream)
+      voiceChunksRef.current = []
+      recorder.ondataavailable = event => { if (event.data.size) voiceChunksRef.current.push(event.data) }
+      recorder.onstop = () => {
+        stream.getTracks().forEach(track => track.stop())
+        const blob = new Blob(voiceChunksRef.current, { type: recorder.mimeType || 'audio/webm' })
+        setVoiceUrl(current => { if (current) URL.revokeObjectURL(current); return URL.createObjectURL(blob) })
+      }
+      recorderRef.current = recorder
+      recorder.start()
+      setRecording(true)
+      setMessage('Recording locally. Stop when you are done, then listen back before saving.')
+    } catch {
+      setMessage('Microphone access was not granted.')
+    }
+  }
 
   async function saveEntry() {
     if (!user || !content.trim() || saving) return
@@ -75,7 +108,7 @@ export default function Journal() {
     <div className="mx-auto max-w-5xl">
       <header className="mb-8 flex items-start justify-between gap-4"><div><Link to="/home" style={{ color: c.muted }}>Back home</Link><p className="mt-5 text-xs font-semibold uppercase tracking-[0.2em]" style={{ color: c.forest }}>Private journal</p><h1 className="mt-2 text-4xl font-bold" style={{ color: c.forest }}>Hear yourself clearly.</h1><p className="mt-3 max-w-xl leading-7" style={{ color: c.muted }}>Write freely, connect a reflection to what you are learning, and ask Koru for an optional pattern summary only when you choose.</p></div><div className="rounded-2xl px-4 py-3 text-right text-xs" style={{ background: c.card, color: c.muted }}>Encrypted at rest<br /><strong style={{ color: c.forest }}>Private by default</strong></div></header>
       <section className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-        <div className="rounded-3xl p-6" style={{ background: c.card, border: `1px solid ${c.cardBorder}` }}><h2 className="text-xl font-bold">New reflection</h2><input value={title} onChange={e => setTitle(e.target.value)} placeholder="Give this reflection a title" className="mt-5 w-full rounded-xl border px-4 py-3 outline-none" style={{ background: c.bg, borderColor: c.cardBorder, color: c.forest }} /><textarea value={content} onChange={e => setContent(e.target.value)} placeholder="What is present for you today?" rows={9} className="mt-3 w-full resize-y rounded-xl border px-4 py-3 leading-6 outline-none" style={{ background: c.bg, borderColor: c.cardBorder, color: c.forest }} /><div className="mt-4 grid gap-3 sm:grid-cols-3"><input value={linkedQuizId} onChange={e => setLinkedQuizId(e.target.value)} placeholder="Quiz or result" className="rounded-xl border px-3 py-2 text-sm" style={{ background: c.bg, borderColor: c.cardBorder, color: c.forest }} /><input value={linkedCheckInDate} onChange={e => setLinkedCheckInDate(e.target.value)} placeholder="Check-in date" className="rounded-xl border px-3 py-2 text-sm" style={{ background: c.bg, borderColor: c.cardBorder, color: c.forest }} /><input value={linkedIntention} onChange={e => setLinkedIntention(e.target.value)} placeholder="Future-self intention" className="rounded-xl border px-3 py-2 text-sm" style={{ background: c.bg, borderColor: c.cardBorder, color: c.forest }} /></div><button onClick={saveEntry} disabled={saving || !content.trim()} className="mt-5 rounded-xl px-5 py-3 font-semibold disabled:opacity-50" style={{ background: c.forest, color: '#fff' }}>{saving ? 'Saving…' : 'Save privately'}</button>{message && <p className="mt-3 text-sm" style={{ color: c.muted }}>{message}</p>}</div>
+        <div className="rounded-3xl p-6" style={{ background: c.card, border: `1px solid ${c.cardBorder}` }}><h2 className="text-xl font-bold">New reflection</h2><input value={title} onChange={e => setTitle(e.target.value)} placeholder="Give this reflection a title" className="mt-5 w-full rounded-xl border px-4 py-3 outline-none" style={{ background: c.bg, borderColor: c.cardBorder, color: c.forest }} /><textarea value={content} onChange={e => setContent(e.target.value)} placeholder="What is present for you today?" rows={9} className="mt-3 w-full resize-y rounded-xl border px-4 py-3 leading-6 outline-none" style={{ background: c.bg, borderColor: c.cardBorder, color: c.forest }} /><div className="mt-3 flex flex-wrap items-center gap-3"><button type="button" onClick={toggleVoiceNote} className="rounded-xl border px-3 py-2 text-sm font-semibold" style={{ borderColor: c.cardBorder, color: c.forest }}>{recording ? 'Stop voice note' : 'Record voice note'}</button>{voiceUrl && <audio controls src={voiceUrl} className="h-9" aria-label="Recorded voice note" />}<span className="text-xs" style={{ color: c.muted }}>Audio is kept in this session only.</span></div><div className="mt-4 grid gap-3 sm:grid-cols-3"><input value={linkedQuizId} onChange={e => setLinkedQuizId(e.target.value)} placeholder="Quiz or result" className="rounded-xl border px-3 py-2 text-sm" style={{ background: c.bg, borderColor: c.cardBorder, color: c.forest }} /><input value={linkedCheckInDate} onChange={e => setLinkedCheckInDate(e.target.value)} placeholder="Check-in date" className="rounded-xl border px-3 py-2 text-sm" style={{ background: c.bg, borderColor: c.cardBorder, color: c.forest }} /><input value={linkedIntention} onChange={e => setLinkedIntention(e.target.value)} placeholder="Future-self intention" className="rounded-xl border px-3 py-2 text-sm" style={{ background: c.bg, borderColor: c.cardBorder, color: c.forest }} /></div><button onClick={saveEntry} disabled={saving || !content.trim()} className="mt-5 rounded-xl px-5 py-3 font-semibold disabled:opacity-50" style={{ background: c.forest, color: '#fff' }}>{saving ? 'Saving…' : 'Save privately'}</button>{message && <p className="mt-3 text-sm" style={{ color: c.muted }}>{message}</p>}</div>
         <div><h2 className="mb-3 text-xl font-bold">Your reflections</h2>{entries.length === 0 ? <div className="rounded-3xl p-6" style={{ background: c.card, color: c.muted }}>Your first page is waiting. Start with one honest sentence.</div> : <div className="space-y-3">{entries.map(entry => <article key={entry.id} className="rounded-2xl p-5" style={{ background: c.card, border: `1px solid ${selectedId === entry.id ? c.forest : c.cardBorder}` }}><div className="flex items-start justify-between gap-3"><div><h3 className="font-bold">{entry.title}</h3><time className="text-xs" style={{ color: c.muted }}>{new Date(entry.createdAt).toLocaleDateString()}</time></div><button onClick={() => removeEntry(entry.id)} className="text-xs" style={{ color: c.muted }}>Delete</button></div><p className="mt-3 whitespace-pre-wrap text-sm leading-6" style={{ color: c.muted }}>{entry.content}</p>{(entry.linkedQuizId || entry.linkedCheckInDate || entry.linkedIntention) && <p className="mt-3 text-xs" style={{ color: c.forest }}>Linked: {[entry.linkedQuizId, entry.linkedCheckInDate, entry.linkedIntention].filter(Boolean).join(' · ')}</p>}<button onClick={() => { setSelectedId(entry.id); analyzeEntry(entry) }} disabled={analyzing} className="mt-4 rounded-xl border px-3 py-2 text-sm font-semibold disabled:opacity-50" style={{ borderColor: c.cardBorder, color: c.forest }}>{analyzing && selectedId === entry.id ? 'Reflecting…' : 'Analyze this entry'}</button>{selectedId === entry.id && insight && <div className="mt-4 rounded-2xl p-4 text-sm leading-6" style={{ background: c.bg, color: c.forest }}><strong>Optional Koru insight</strong><p className="mt-2 whitespace-pre-wrap">{insight}</p></div>}</article>)}</div>}</div>
       </section>
     </div>
