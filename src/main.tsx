@@ -23,6 +23,7 @@ import ClarityCard from './pages/ClarityCard'
 import Journal from './pages/Journal'
 import Assistant from './pages/Assistant'
 import Roadmap from './pages/Roadmap'
+import MoodInsights from './pages/MoodInsights'
 import IdleTimer from './components/IdleTimer'
 import WhatsAppPrompt from './components/WhatsAppPrompt'
 import OfflineStatus from './components/OfflineStatus'
@@ -67,6 +68,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
             <Route path="/journal" element={<ProtectedRoute><Journal /></ProtectedRoute>} />
             <Route path="/assistant" element={<ProtectedRoute><Assistant /></ProtectedRoute>} />
             <Route path="/roadmap" element={<ProtectedRoute><Roadmap /></ProtectedRoute>} />
+            <Route path="/mood-insights" element={<ProtectedRoute><MoodInsights /></ProtectedRoute>} />
             <Route path="/admin" element={<AdminRoute />} />
 
             {/* Fallback */}

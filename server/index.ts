@@ -156,7 +156,7 @@ app.get('/api/health', (_req, res) => {
 app.post('/api/assistant/chat', async (req, res) => {
   try {
     const decoded = await getAuthenticatedUser(req)
-    const apiKey = process.env.GROQ_API_KEY_2
+    const apiKey = process.env.GROQ_API_KEY_2 || process.env.GROQ_API_KEY
     if (!apiKey) { res.status(503).json({ error: 'The assistant is not configured.' }); return }
     const input = req.body as { messages?: unknown }
     const messages = Array.isArray(input.messages) ? input.messages.slice(-12).map(item => ({
@@ -165,7 +165,7 @@ app.post('/api/assistant/chat', async (req, res) => {
     })).filter(item => item.content) : []
     if (!messages.length) { res.status(400).json({ error: 'Tell the assistant what happened first.' }); return }
     const system = `You are Koru's reflection assistant. Your job is to help the user understand a real situation, not decide for them. Ask at most two grounded follow-ups if the story is too thin. When there is enough context, reflect what you heard and offer 2-3 distinct paths with one honest tradeoff each, then ask which path they want to explore. Use short direct paragraphs, no fake enthusiasm, no diagnosis, and no therapy-speak as decoration. You are not a therapist or emergency service. SAFETY OVERRIDE: if the user mentions suicidal thoughts, self-harm, physical violence, threats, fear for immediate safety, or a minor describing abuse, stop normal flow and lead with plain validation and this clear resource block: If you are in immediate danger, call 112 (nationwide emergency) or 767 (Lagos). SURPIN runs a free 24/7 suicide-prevention helpline across Nigeria. MANI offers free confidential phone support. If this involves violence or abuse, Women Safe House Sustenance Initiative supports women and girls specifically. Encourage contacting a trusted person now. Never gate safety resources.`
-    const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', { method: 'POST', headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ model: 'llama-3.3-70b-versatile', temperature: 0.45, max_tokens: 700, messages: [{ role: 'system', content: system }, ...messages] }) })
+    const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', { method: 'POST', headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ model: 'openai/gpt-oss-120b', temperature: 0.45, max_tokens: 700, messages: [{ role: 'system', content: system }, ...messages] }) })
     const data = await groqResponse.json() as { choices?: Array<{ message?: { content?: string } }>; error?: { message?: string } }
     if (!groqResponse.ok) { console.error('[Koru] assistant request failed for', decoded.uid, data.error?.message); res.status(502).json({ error: 'The assistant could not respond.' }); return }
     const message = data.choices?.[0]?.message?.content?.trim()
@@ -180,7 +180,7 @@ app.post('/api/assistant/chat', async (req, res) => {
 app.post('/api/journal/insight', async (req, res) => {
   try {
     const decoded = await getAuthenticatedUser(req)
-    const apiKey = process.env.GROQ_API_KEY_2
+    const apiKey = process.env.GROQ_API_KEY_2 || process.env.GROQ_API_KEY
     if (!apiKey) { res.status(503).json({ error: 'Journal insights are not configured.' }); return }
 
     const input = req.body as { title?: unknown; content?: unknown; linkedQuizId?: unknown; linkedCheckInDate?: unknown; linkedIntention?: unknown }
@@ -198,7 +198,7 @@ app.post('/api/journal/insight', async (req, res) => {
       method: 'POST',
       headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile',
+        model: 'openai/gpt-oss-120b',
         temperature: 0.4,
         max_tokens: 500,
         messages: [
