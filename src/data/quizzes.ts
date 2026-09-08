@@ -1460,7 +1460,24 @@ export const quizzes: Quiz[] = [
     ],
   },
 
-  // ── New quizzes from Koru Quiz Content brief ───────────────────────────────
+  // ── Life-stage quiz: plain questions for a complicated season ──────────────
+  {
+    id: 'life-stage-archetype', emoji: '🧭', title: 'What season of life are you actually in?', description: 'A grounded quiz for when the old plan does not fit and the next one has not arrived yet.', category: 'Identity & Personal Growth', estimatedMinutes: 4,
+    questions: [
+      ['The thing taking up the most room in your head lately is…', ['What I want next', 'How to keep everything from slipping', 'Whether this relationship or job still fits', 'How to feel like myself again']],
+      ['When someone asks how you are, your honest answer is closest to…', ['I am ready for a change, I just have not named it', 'I am managing, but there is not much spare capacity', 'I keep changing my mind because something feels off', 'I look fine from the outside and feel far away inside']],
+      ['A decision you keep postponing is probably about…', ['Giving yourself permission', 'Having enough support', 'Admitting what has changed', 'Trusting your own read of the situation']],
+      ['What would make the next month feel lighter?', ['A direction to move toward', 'One less responsibility', 'A conversation I have been avoiding', 'Time without having to perform']],
+      ['The advice you are least interested in hearing is…', ['Be realistic', 'Just push through', 'Give it more time', 'You are overthinking it']],
+      ['The small truth you already know is…', ['I cannot keep calling this a maybe', 'I need help before I burn out', 'The old arrangement is costing me', 'I have been missing myself']],
+    ].map((question, i) => ({ id: `q${i + 1}`, text: question[0] as string, options: question.slice(1).map((text, j) => ({ id: String.fromCharCode(97 + j), text: text as string, scores: { becoming: j === 0 ? 3 : 0, carrying: j === 1 ? 3 : 0, recalibrating: j === 2 ? 3 : 0, returning: j === 3 ? 3 : 0 } })) })),
+    results: [
+      { id: 'becoming', title: 'The Becoming Season', emoji: '🌱', tagline: 'The next version is asking for room.', description: 'You may not need a five-year plan as much as you need permission to stop treating the old one as binding. Start with one choice that makes your future more possible, then let the evidence build.', traits: ['Ready for change', 'Curious', 'Outgrowing an old script', 'Needs a first move'], color: '#1B3B2B', tagBg: 'rgba(162,191,166,0.25)' },
+      { id: 'carrying', title: 'The Carrying Season', emoji: '🪨', tagline: 'You have been holding more than people can see.', description: 'This may be a season for reducing the load before adding another goal. The next clear step is not a dramatic reinvention; it is deciding what does not have to be carried alone.', traits: ['Responsible', 'At capacity', 'Reliable', 'Needs support'], color: '#3a6b4a', tagBg: 'rgba(162,191,166,0.25)' },
+      { id: 'recalibrating', title: 'The Recalibrating Season', emoji: '🧭', tagline: 'The old answer stopped answering the question.', description: 'Something that used to work has changed, and you are trying to be honest about that without making a reckless move. Let the next step be an experiment, not a permanent verdict.', traits: ['Observant', 'In transition', 'Questioning fit', 'Needs honest data'], color: '#E07A5F', tagBg: 'rgba(224,122,95,0.15)' },
+      { id: 'returning', title: 'The Returning Season', emoji: '🪟', tagline: 'You are finding your way back to yourself.', description: 'You may have spent a while being useful, agreeable, or simply getting through. The work now is not to become someone new; it is to notice what still feels like you and make room for it.', traits: ['Self-reconnecting', 'Quietly brave', 'Sensitive to pressure', 'Needs space'], color: '#7a6aa0', tagBg: 'rgba(122,106,160,0.12)' },
+    ],
+  },
   ...newQuizLibrary,
 ]
 
