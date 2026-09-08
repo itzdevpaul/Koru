@@ -153,9 +153,32 @@ app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', service: 'koru-api' })
 })
 
+async function requestGroq(apiKey: string, body: Record<string, unknown>) {
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 30000)
+  try {
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    })
+    const data = await response.json() as { choices?: Array<{ message?: { content?: string } }>; error?: { message?: string } }
+    return { response, data }
+  } finally {
+    clearTimeout(timeout)
+  }
+}
+
 app.post('/api/assistant/chat', async (req, res) => {
   try {
-    const decoded = await getAuthenticatedUser(req)
+    let decoded
+    try {
+      decoded = await getAuthenticatedUser(req)
+    } catch {
+      res.status(401).json({ error: 'Please sign in again before using Koru AI.' })
+      return
+    }
     const apiKey = process.env.GROQ_API_KEY_2 || process.env.GROQ_API_KEY
     if (!apiKey) { res.status(503).json({ error: 'The assistant is not configured.' }); return }
     const input = req.body as { messages?: unknown }
@@ -165,21 +188,27 @@ app.post('/api/assistant/chat', async (req, res) => {
     })).filter(item => item.content) : []
     if (!messages.length) { res.status(400).json({ error: 'Tell the assistant what happened first.' }); return }
     const system = `You are Koru's reflection assistant. Your job is to help the user understand a real situation, not decide for them. Ask at most two grounded follow-ups if the story is too thin. When there is enough context, reflect what you heard and offer 2-3 distinct paths with one honest tradeoff each, then ask which path they want to explore. Use short direct paragraphs, no fake enthusiasm, no diagnosis, and no therapy-speak as decoration. You are not a therapist or emergency service. SAFETY OVERRIDE: if the user mentions suicidal thoughts, self-harm, physical violence, threats, fear for immediate safety, or a minor describing abuse, stop normal flow and lead with plain validation and this clear resource block: If you are in immediate danger, call 112 (nationwide emergency) or 767 (Lagos). SURPIN runs a free 24/7 suicide-prevention helpline across Nigeria. MANI offers free confidential phone support. If this involves violence or abuse, Women Safe House Sustenance Initiative supports women and girls specifically. Encourage contacting a trusted person now. Never gate safety resources.`
-    const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', { method: 'POST', headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ model: 'openai/gpt-oss-120b', temperature: 0.45, max_tokens: 700, messages: [{ role: 'system', content: system }, ...messages] }) })
-    const data = await groqResponse.json() as { choices?: Array<{ message?: { content?: string } }>; error?: { message?: string } }
+    const { response: groqResponse, data } = await requestGroq(apiKey, { model: 'openai/gpt-oss-120b', temperature: 0.45, max_tokens: 700, messages: [{ role: 'system', content: system }, ...messages] })
     if (!groqResponse.ok) { console.error('[Koru] assistant request failed for', decoded.uid, data.error?.message); res.status(502).json({ error: 'The assistant could not respond.' }); return }
     const message = data.choices?.[0]?.message?.content?.trim()
     if (!message) { res.status(502).json({ error: 'The assistant returned an empty response.' }); return }
     res.json({ message: message.slice(0, 5000) })
   } catch (error) {
     console.error('[Koru] assistant error:', error instanceof Error ? error.message : error)
-    res.status(401).json({ error: 'Your session could not be verified.' })
+    const message = error instanceof Error && error.name === 'AbortError' ? 'The assistant took too long to respond. Please try again.' : 'The assistant is temporarily unavailable. Please try again.'
+    res.status(error instanceof Error && error.name === 'AbortError' ? 504 : 502).json({ error: message })
   }
 })
 
 app.post('/api/journal/insight', async (req, res) => {
   try {
-    const decoded = await getAuthenticatedUser(req)
+    let decoded
+    try {
+      decoded = await getAuthenticatedUser(req)
+    } catch {
+      res.status(401).json({ error: 'Please sign in again before using Koru AI.' })
+      return
+    }
     const apiKey = process.env.GROQ_API_KEY_2 || process.env.GROQ_API_KEY
     if (!apiKey) { res.status(503).json({ error: 'Journal insights are not configured.' }); return }
 
@@ -194,27 +223,23 @@ app.post('/api/journal/insight', async (req, res) => {
       `Linked intention: ${String(input.linkedIntention ?? '').slice(0, 300)}`,
       `Journal entry: ${content}`,
     ].join('\\n')
-    const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'openai/gpt-oss-120b',
-        temperature: 0.4,
-        max_tokens: 500,
-        messages: [
-          { role: 'system', content: 'You are Koru, a warm Nigerian self-reflection guide. Return a concise, non-clinical journal insight with exactly three short sections: Notice, Consider, Next gentle step. Never diagnose, predict, or claim certainty. Do not repeat private text unnecessarily. Encourage professional support if the entry suggests immediate danger.' },
-          { role: 'user', content: context },
-        ],
-      }),
+    const { response: groqResponse, data } = await requestGroq(apiKey, {
+      model: 'openai/gpt-oss-120b',
+      temperature: 0.4,
+      max_tokens: 500,
+      messages: [
+        { role: 'system', content: 'You are Koru, a warm Nigerian self-reflection guide. Return a concise, non-clinical journal insight with exactly three short sections: Notice, Consider, Next gentle step. Never diagnose, predict, or claim certainty. Do not repeat private text unnecessarily. Encourage professional support if the entry suggests immediate danger.' },
+        { role: 'user', content: context },
+      ],
     })
-    const data = await groqResponse.json() as { choices?: Array<{ message?: { content?: string } }>; error?: { message?: string } }
     if (!groqResponse.ok) { console.error('[Koru] Groq journal insight failed for', decoded.uid, data.error?.message); res.status(502).json({ error: 'The journal insight could not be generated.' }); return }
     const insight = data.choices?.[0]?.message?.content?.trim()
     if (!insight) { res.status(502).json({ error: 'The journal insight was empty.' }); return }
     res.json({ insight: insight.slice(0, 3000) })
   } catch (error) {
     console.error('[Koru] Journal insight error:', error instanceof Error ? error.message : error)
-    res.status(401).json({ error: 'Your session could not be verified.' })
+    const message = error instanceof Error && error.name === 'AbortError' ? 'The insight took too long to generate. Please try again.' : 'Journal insights are temporarily unavailable. Please try again.'
+    res.status(error instanceof Error && error.name === 'AbortError' ? 504 : 502).json({ error: message })
   }
 })
 
@@ -295,7 +320,7 @@ app.post('/api/send-reminder', async (req, res) => {
   }
 })
 
-// ── Send a welcome email ──────────────────────────────────────────────────────
+// ── Send a welcome email ─────────────────────────────────────────────────────���
 app.post('/api/send-welcome', async (req, res) => {
   try {
     const decoded = await getAuthenticatedUser(req)

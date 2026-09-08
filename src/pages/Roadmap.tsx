@@ -17,7 +17,7 @@ export default function Roadmap() {
     <div className="mx-auto max-w-6xl">
       <header className="mb-10 flex flex-wrap items-start justify-between gap-5">
         <div>
-          <Link to="/home" className="text-sm font-semibold" style={{ color: c.muted }}>Back home</Link>
+          <Link to="/home" className="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold transition-opacity hover:opacity-80" style={{ color: c.forest, background: c.card, border: `1px solid ${c.cardBorder}` }}><span aria-hidden="true">←</span> Back to Koru home</Link>
           <p className="mt-8 text-xs font-semibold uppercase tracking-[0.2em]" style={{ color: c.muted }}>The Koru roadmap</p>
           <h1 className="mt-3 max-w-3xl text-4xl font-bold tracking-tight sm:text-6xl" style={{ fontFamily: 'Georgia, serif' }}>More ways to find your next clear step.</h1>
           <p className="mt-5 max-w-2xl text-base leading-7" style={{ color: c.body }}>Tools for the real places life gets complicated: conversations, transitions, feelings, and the small choices that shape what comes next.</p>
