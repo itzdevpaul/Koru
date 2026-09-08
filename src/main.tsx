@@ -22,6 +22,7 @@ import AdminRoute from './components/AdminRoute'
 import ClarityCard from './pages/ClarityCard'
 import Journal from './pages/Journal'
 import Assistant from './pages/Assistant'
+import Roadmap from './pages/Roadmap'
 import IdleTimer from './components/IdleTimer'
 import WhatsAppPrompt from './components/WhatsAppPrompt'
 import OfflineStatus from './components/OfflineStatus'
@@ -65,6 +66,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
             <Route path="/clarity-card" element={<ProtectedRoute><ClarityCard /></ProtectedRoute>} />
             <Route path="/journal" element={<ProtectedRoute><Journal /></ProtectedRoute>} />
             <Route path="/assistant" element={<ProtectedRoute><Assistant /></ProtectedRoute>} />
+            <Route path="/roadmap" element={<ProtectedRoute><Roadmap /></ProtectedRoute>} />
             <Route path="/admin" element={<AdminRoute />} />
 
             {/* Fallback */}
