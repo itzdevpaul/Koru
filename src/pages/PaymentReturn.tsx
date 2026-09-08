@@ -15,6 +15,7 @@ export default function PaymentReturn() {
   const [searchParams] = useSearchParams()
   const [status, setStatus] = useState<'verifying' | 'success' | 'error'>('verifying')
   const [message, setMessage] = useState('')
+  const [attempt, setAttempt] = useState(0)
 
   useEffect(() => {
     async function verify() {
@@ -29,7 +30,7 @@ export default function PaymentReturn() {
 
       if (!ref || !uid) {
         setStatus('error')
-        setMessage('Payment reference not found. If you were charged, contact hello@koru.com.ng.')
+        setMessage('Payment reference not found. If you were charged, return to the payment page and use Recover payment access.')
         return
       }
 
@@ -92,7 +93,7 @@ export default function PaymentReturn() {
 
     verify()
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [attempt])
 
   if (status === 'verifying') {
     return (
@@ -117,13 +118,22 @@ export default function PaymentReturn() {
       <div className="w-16 h-16 rounded-3xl flex items-center justify-center text-3xl" style={{ background: 'rgba(224,122,95,0.12)' }}>⚠️</div>
       <h1 className="text-xl font-bold text-center" style={{ fontFamily: F, color: '#1B3B2B' }}>Payment verification failed</h1>
       <p className="text-sm text-center max-w-sm" style={{ fontFamily: I, color: '#7a9a86', lineHeight: 1.65 }}>{message}</p>
-      <Link
-        to="/upgrade"
-        className="px-6 py-3 rounded-2xl text-sm font-semibold text-white"
-        style={{ fontFamily: F, background: '#1B3B2B' }}
-      >
-        Try again →
-      </Link>
+      <div className="flex flex-wrap justify-center gap-3">
+        <button
+          onClick={() => { setStatus('verifying'); setMessage(''); setAttempt(value => value + 1) }}
+          className="px-6 py-3 rounded-2xl text-sm font-semibold text-white"
+          style={{ fontFamily: F, background: '#1B3B2B' }}
+        >
+          Recover payment access
+        </button>
+        <Link
+          to="/upgrade"
+          className="px-6 py-3 rounded-2xl text-sm font-semibold"
+          style={{ fontFamily: F, color: '#1B3B2B', border: '1px solid #1B3B2B' }}
+        >
+          Back to Pro
+        </Link>
+      </div>
     </div>
   )
 }
