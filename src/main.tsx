@@ -23,6 +23,9 @@ import Journal from './pages/Journal'
 import Assistant from './pages/Assistant'
 import Roadmap from './pages/Roadmap'
 import MoodInsights from './pages/MoodInsights'
+import About from './pages/About'
+import FAQ from './pages/FAQ'
+import Pricing from './pages/Pricing'
 import IdleTimer from './components/IdleTimer'
 import WhatsAppPrompt from './components/WhatsAppPrompt'
 import OfflineStatus from './components/OfflineStatus'
@@ -57,6 +60,9 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/privacy-policy" element={<PrivacyPolicy />} />
             <Route path="/terms-of-service" element={<TermsOfService />} />
+            <Route path="/about" element={<About />} />
+            <Route path="/faq" element={<FAQ />} />
+            <Route path="/pricing" element={<Pricing />} />
 
             {/* Protected routes */}
             <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
