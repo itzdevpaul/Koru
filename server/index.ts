@@ -354,7 +354,7 @@ app.post('/api/send-reminder', async (req, res) => {
     const prompt = getReflectionPrompt(resultTitle)
 
     await resend.emails.send({
-      from: 'Koru <hello@koru.com.ng>',
+      from: 'Koru <support@koru.com.ng>',
       to,
       subject: '🌿 Your weekly reflection prompt',
       html: buildReminderEmail(name, prompt),
@@ -379,7 +379,7 @@ app.post('/api/send-welcome', async (req, res) => {
 
     const resend = getResend()
     await resend.emails.send({
-      from: 'Koru <hello@koru.com.ng>',
+      from: 'Koru <support@koru.com.ng>',
       to,
       subject: `Hey ${name}, welcome to Koru 🌿`,
       html: buildWelcomeEmail(name),
@@ -435,7 +435,7 @@ app.post('/api/send-weekly-wrapup', async (req, res) => {
 
     const resend = getResend()
     await resend.emails.send({
-      from: 'Koru <hello@koru.com.ng>',
+      from: 'Koru <support@koru.com.ng>',
       to,
       subject: '📊 Your Koru weekly wrap-up',
       html: buildWeeklyWrapUpEmail(name, {
@@ -1421,7 +1421,7 @@ function buildReminderEmail(name: string, prompt: string): string {
              <p style="margin:0;color:#1B3B2B;font-size:16px;font-weight:600;line-height:1.5;font-style:italic">${safePrompt}</p>
           </blockquote>
           <p style="margin:0 0 28px;color:#7a9a86;font-size:14px;line-height:1.6">Take a few minutes in your journal, on a walk, or just sitting quietly. There are no right answers — only honest ones.</p>
-          <a href="${process.env.APP_URL ?? 'https://getkoru.app'}/home" style="display:inline-block;padding:14px 28px;background:#1B3B2B;color:#fff;text-decoration:none;border-radius:14px;font-family:'Plus Jakarta Sans',sans-serif;font-weight:600;font-size:14px">Open Koru →</a>
+          <a href="${process.env.APP_URL ?? 'https://getkoru.app'}/home" style="display:inline-block;padding:14px 28px;background:#1B3B2B;color:#fff;text-decoration:none;border-radius:14px;font-family:'Plus Jakarta Sans',sans-serif;font-weight:600;font-size:14px">Open Koru ���</a>
         </td></tr>
         <tr><td style="padding:24px 0;text-align:center">
           <p style="margin:0;color:#A2BFA6;font-size:12px">You're receiving this because you opted in to weekly prompts.</p>

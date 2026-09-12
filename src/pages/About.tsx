@@ -15,7 +15,7 @@ export default function About() {
         <section className="mt-12 rounded-3xl bg-[#1B3B2B] p-7 text-[#FBF9F5]">
           <h2 className="text-2xl font-bold">Built in Nigeria</h2>
           <p className="mt-3 leading-7 text-[#C6D8C8]">Koru was founded and developed by Paul Adamu in Nigeria and launched on August 4, 2026.</p>
-          <p className="mt-4 text-sm text-[#C6D8C8]">Contact: <a className="underline" href="mailto:pauladamu600@gmail.com">pauladamu600@gmail.com</a></p>
+          <p className="mt-4 text-sm text-[#C6D8C8]">Contact: <a className="underline" href="mailto:founder@koru.com.ng">founder@koru.com.ng</a></p>
           <p className="mt-2 text-sm text-[#C6D8C8]"><a className="underline" href="https://linkedin.com/in/paul-adamu-67bb46324" target="_blank" rel="noreferrer">Connect with Paul Adamu on LinkedIn</a></p>
         </section>
         <nav className="mt-10 flex flex-wrap gap-4 text-sm font-semibold"><Link to="/faq">Frequently asked questions</Link><Link to="/pricing">Pricing</Link><Link to="/privacy-policy">Privacy</Link><Link to="/">Back to Koru</Link></nav>

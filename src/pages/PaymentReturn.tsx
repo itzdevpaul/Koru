@@ -57,7 +57,7 @@ export default function PaymentReturn() {
             setTimeout(() => navigate(unlockQuiz ? `/quiz/${unlockQuiz}` : '/home'), 2500)
           } else {
             setStatus('error')
-            setMessage(data.error ?? 'Payment could not be verified. If you were charged, contact hello@koru.com.ng.')
+            setMessage(data.error ?? 'Payment could not be verified. If you were charged, contact support@koru.com.ng.')
           }
         } else {
           // Subscription flow (existing)
@@ -82,12 +82,12 @@ export default function PaymentReturn() {
             setTimeout(() => navigate('/home'), 2500)
           } else {
             setStatus('error')
-            setMessage('Payment could not be verified. If you were charged, contact hello@koru.com.ng.')
+            setMessage('Payment could not be verified. If you were charged, contact support@koru.com.ng.')
           }
         }
       } catch {
         setStatus('error')
-        setMessage('Verification failed. Please contact hello@koru.com.ng.')
+        setMessage('Verification failed. Please contact support@koru.com.ng.')
       }
     }
 
