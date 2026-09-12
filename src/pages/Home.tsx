@@ -1242,7 +1242,7 @@ export default function Home() {
         </section>
 
         <Link to="/roadmap" className="mb-6 block rounded-3xl p-6 sm:p-8 transition-transform hover:-translate-y-0.5" style={{ background: c.surface, border: `1px solid ${c.cardBorder}`, textDecoration: 'none' }}>
-          <div className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-xs font-semibold uppercase tracking-[0.2em]" style={{ color: c.muted }}>The Koru roadmap</p><h2 className="mt-2 text-xl font-bold" style={{ fontFamily: F, color: c.forest }}>More ways to find your next clear step.</h2><p className="mt-2 max-w-xl text-sm leading-6" style={{ fontFamily: I, color: c.body }}>Explore boundary scripts, offline workbooks, life-stage tools, mood insights, sprints, circles, and what is coming next.</p></div><span className="rounded-xl px-4 py-2 text-sm font-bold" style={{ background: c.forest, color: '#fff' }}>Explore roadmap</span></div>
+          <div className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-xs font-semibold uppercase tracking-[0.2em]" style={{ color: c.muted }}>The Koru roadmap</p><h2 className="mt-2 text-xl font-bold" style={{ fontFamily: F, color: c.forest }}>More ways to find your next clear step.</h2><p className="mt-2 max-w-xl text-sm leading-6" style={{ fontFamily: I, color: c.body }}>Explore boundary scripts, offline workbooks, life-stage tools, mood insights, sprints, circles, and what is coming next.</p></div><span className="rounded-xl px-4 py-2 text-sm font-bold" style={{ background: c.forest, color: c.bg }}>Explore roadmap</span></div>
         </Link>
 
         {/* ── Journal teaser ── */}
