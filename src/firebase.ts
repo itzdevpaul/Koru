@@ -349,14 +349,23 @@ export async function disablePushNotifications(uid: string): Promise<void> {
 
 // ── Streak tracking ─────────────────────────────────────────────────────────
 
-function todayISO(): string {
-  return new Date().toISOString().split('T')[0]
+function localISO(date = new Date()): string {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
 }
 
-function yesterdayISO(): string {
-  const d = new Date()
-  d.setDate(d.getDate() - 1)
-  return d.toISOString().split('T')[0]
+function todayISO(): string {
+  return localISO()
+}
+
+function calendarDayDifference(fromISO: string, toISO: string): number {
+  const [fromYear, fromMonth, fromDay] = fromISO.split('-').map(Number)
+  const [toYear, toMonth, toDay] = toISO.split('-').map(Number)
+  const from = Date.UTC(fromYear, fromMonth - 1, fromDay)
+  const to = Date.UTC(toYear, toMonth - 1, toDay)
+  return Math.round((to - from) / 86_400_000)
 }
 
 const FREEZES_PER_MONTH = 2
@@ -368,50 +377,37 @@ export async function updateStreak(uid: string): Promise<number> {
   if (!profile) return 1
 
   const today = todayISO()
-  const yesterday = yesterdayISO()
   const lastActive = profile.lastActive ?? ''
+  if (lastActive === today) return profile.streak ?? 1
 
-  let newStreak: number
-  if (lastActive === today) {
-    // Already counted today
-    return profile.streak ?? 1
-  } else if (lastActive === yesterday) {
-    newStreak = (profile.streak ?? 1) + 1
-  } else if (lastActive) {
-    // Gap detected — check if streak freezes are available
-    const dayDiff = Math.floor((new Date(today).getTime() - new Date(lastActive).getTime()) / 86_400_000)
-    const missedDays = dayDiff - 1 // yesterday = 0 missed, day before = 1 missed, etc.
-    const currentMonth = today.slice(0, 7)
-    const freezesUsedThisMonth = profile.streakFreezesUsed?.[currentMonth] ?? 0
-    const freezesAvailable = FREEZES_PER_MONTH - freezesUsedThisMonth
-
-    if (missedDays > 0 && missedDays <= freezesAvailable) {
-      // Consume freezes and keep the streak going
+  let newStreak = 1
+  let freezeUpdate: Record<string, number> | undefined
+  if (lastActive) {
+    const dayDiff = calendarDayDifference(lastActive, today)
+    if (dayDiff <= 0) return profile.streak ?? 1
+    if (dayDiff === 1) {
       newStreak = (profile.streak ?? 1) + 1
-      try {
-        await updateDoc(doc(db, 'users', uid, 'profile', 'main'), {
-          streak: newStreak,
-          lastActive: today,
-          [`streakFreezesUsed.${currentMonth}`]: freezesUsedThisMonth + missedDays,
-          updatedAt: serverTimestamp(),
-        })
-      } catch { /* non-critical */ }
-      return newStreak
+    } else {
+      const missedDays = dayDiff - 1
+      const currentMonth = today.slice(0, 7)
+      const freezesUsed = profile.streakFreezesUsed?.[currentMonth] ?? 0
+      const freezesAvailable = Math.max(0, FREEZES_PER_MONTH - freezesUsed)
+      if (missedDays <= freezesAvailable) {
+        newStreak = (profile.streak ?? 1) + 1
+        freezeUpdate = { [`streakFreezesUsed.${currentMonth}`]: freezesUsed + missedDays }
+      }
     }
-    // Not enough freezes — reset
-    newStreak = 1
-  } else {
-    newStreak = 1
   }
 
   try {
     await updateDoc(doc(db, 'users', uid, 'profile', 'main'), {
       streak: newStreak,
       lastActive: today,
+      ...(freezeUpdate ?? {}),
       updatedAt: serverTimestamp(),
     })
-  } catch {
-    // Fail silently — streak update is non-critical
+  } catch (error) {
+    console.error('[v0] streak update failed', error)
   }
   return newStreak
 }
