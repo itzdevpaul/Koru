@@ -1238,7 +1238,7 @@ export default function Home() {
           <p className="text-xs font-semibold uppercase tracking-[0.2em]" style={{ color: c.muted }}>Koru assistant</p>
           <h2 className="mt-2 text-xl font-bold" style={{ fontFamily: F, color: c.forest }}>Think through what is next.</h2>
           <p className="mt-2 max-w-xl text-sm leading-6" style={{ fontFamily: I, color: c.body }}>Talk through a real decision, relationship, or transition and get grounded options without handing over the decision.</p>
-          <button onClick={() => navigate('/assistant')} className="mt-4 rounded-xl px-4 py-2 text-sm font-bold" style={{ background: c.forest, color: '#fff' }}>Open assistant</button>
+          <button onClick={() => navigate('/assistant')} className="mt-4 rounded-xl px-4 py-2 text-sm font-bold" style={{ background: c.forest, color: c.bg }}>Open assistant</button>
         </section>
 
         <Link to="/roadmap" className="mb-6 block rounded-3xl p-6 sm:p-8 transition-transform hover:-translate-y-0.5" style={{ background: c.surface, border: `1px solid ${c.cardBorder}`, textDecoration: 'none' }}>
@@ -1259,7 +1259,7 @@ export default function Home() {
               Your private space for daily reflection, guided by your quiz results.
             </p>
           </div>
-          <button onClick={() => navigate('/journal')} className="rounded-xl px-4 py-2 text-sm font-bold" style={{ background: c.forest, color: '#fff' }}>
+          <button onClick={() => navigate('/journal')} className="rounded-xl px-4 py-2 text-sm font-bold" style={{ background: c.forest, color: c.bg }}>
             Open journal
           </button>
         </div>

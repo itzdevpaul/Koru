@@ -1,16 +1,13 @@
 const I = "'Inter', sans-serif"
 
-export default function SupportButton() {
+export default function SupportButton({ inline = false }: { inline?: boolean }) {
   return (
     <a
       href="mailto:support@koru.com.ng?subject=Support%20Request"
       aria-label="Contact support"
       title="Email support"
       style={{
-        position: 'fixed',
-        bottom: 24,
-        right: 24,
-        zIndex: 50,
+        ...(inline ? { position: 'static' as const } : { position: 'fixed' as const, bottom: 24, right: 24, zIndex: 50 }),
         display: 'flex',
         alignItems: 'center',
         gap: 7,
