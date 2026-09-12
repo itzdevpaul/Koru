@@ -27,6 +27,7 @@ import MoodInsights from './pages/MoodInsights'
 import IdleTimer from './components/IdleTimer'
 import WhatsAppPrompt from './components/WhatsAppPrompt'
 import OfflineStatus from './components/OfflineStatus'
+import AccessibilityTools from './components/AccessibilityTools'
 import './index.css'
 
 if ('serviceWorker' in navigator && import.meta.env.PROD) {
@@ -47,6 +48,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
           <SupportButton />
           <WhatsAppPrompt />
           <OfflineStatus />
+          <AccessibilityTools />
           <Routes>
             {/* Public routes */}
             <Route path="/" element={<Landing />} />

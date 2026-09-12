@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
@@ -32,6 +32,29 @@ export default function Quiz() {
   const [unlocking, setUnlocking] = useState(false)
   const [unlockError, setUnlockError] = useState('')
 
+  const progressKey = quiz ? `koru-quiz-progress-${quiz.id}` : ''
+
+  useEffect(() => {
+    if (!quiz || phase === 'result') return
+    const saved = sessionStorage.getItem(progressKey)
+    if (!saved) return
+    try {
+      const snapshot = JSON.parse(saved) as { phase: Phase; currentQ: number; answers: Record<string, string> }
+      if (snapshot.phase === 'question' && snapshot.currentQ < quiz.questions.length) {
+        setPhase('question')
+        setCurrentQ(snapshot.currentQ)
+        setAnswers(snapshot.answers)
+        setSelected(snapshot.answers[quiz.questions[snapshot.currentQ]?.id] ?? null)
+      }
+    } catch { sessionStorage.removeItem(progressKey) }
+  }, [quiz, progressKey, phase])
+
+  useEffect(() => {
+    if (quiz && phase === 'question') {
+      sessionStorage.setItem(progressKey, JSON.stringify({ phase, currentQ, answers }))
+    }
+  }, [quiz, progressKey, phase, currentQ, answers])
+
   if (!quiz) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-4" style={{ background: c.bg }}>
@@ -48,6 +71,8 @@ export default function Quiz() {
   const progress = phase === 'result' ? 100 : (currentQ / quiz.questions.length) * 100
 
   function handleStart() {
+    setAnswers({})
+    setResult(null)
     setPhase('question')
     setCurrentQ(0)
     setSelected(null)
@@ -56,6 +81,12 @@ export default function Quiz() {
   function handleSelect(optionId: string) {
     if (animating) return
     setSelected(optionId)
+  }
+
+  function handleBack() {
+    if (currentQ === 0 || animating) return
+    setCurrentQ(q => q - 1)
+    setSelected(answers[quiz.questions[currentQ - 1].id] ?? null)
   }
 
   function handleNext() {
@@ -177,8 +208,8 @@ export default function Quiz() {
       >
         <Link
           to="/home"
-          className="flex items-center gap-1.5 text-sm transition-opacity hover:opacity-60"
-          style={{ fontFamily: I, color: c.muted }}
+          className="flex items-center gap-1.5 rounded-xl border px-3 py-2 text-sm transition-opacity hover:opacity-80"
+          style={{ fontFamily: I, color: c.forest, background: c.card, borderColor: c.cardBorder }}
         >
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
             <path d="M9 2L4 7l5 5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
@@ -223,7 +254,7 @@ export default function Quiz() {
               <button
                 onClick={handleStart}
                 className="px-8 py-4 rounded-2xl text-sm font-semibold text-white transition-all duration-200 hover:opacity-90 active:scale-95"
-                style={{ fontFamily: F, background: '#1B3B2B' }}
+                style={{ fontFamily: F, background: c.forest, color: c.bg, border: `1px solid ${c.forest}` }}
               >
                 Start quiz →
               </button>
@@ -266,14 +297,12 @@ export default function Quiz() {
                 })}
               </div>
 
-              <button
-                onClick={handleNext}
-                disabled={!selected || animating}
-                className="w-full py-3.5 rounded-2xl text-sm font-semibold text-white transition-all duration-200 hover:opacity-90 active:scale-[0.98] disabled:opacity-40"
-                style={{ fontFamily: F, background: '#1B3B2B' }}
-              >
-                {currentQ < quiz.questions.length - 1 ? 'Next →' : 'See my result →'}
-              </button>
+              <div className="flex gap-3">
+                <button onClick={handleBack} disabled={currentQ === 0 || animating} className="rounded-2xl border px-4 py-3.5 text-sm font-semibold disabled:opacity-40" style={{ fontFamily: F, color: c.forest, borderColor: c.cardBorder, background: c.card }}>Back</button>
+                <button onClick={handleNext} disabled={!selected || animating} className="flex-1 rounded-2xl py-3.5 text-sm font-semibold transition-all duration-200 hover:opacity-90 active:scale-[0.98] disabled:opacity-40" style={{ fontFamily: F, background: c.forest, color: c.bg, border: `1px solid ${c.forest}` }}>
+                  {currentQ < quiz.questions.length - 1 ? 'Next →' : 'See my result →'}
+                </button>
+              </div>
             </div>
           )}
 
@@ -473,7 +502,7 @@ export default function Quiz() {
                 <Link
                   to="/home"
                   className="flex-1 py-3.5 rounded-2xl text-sm font-semibold text-white text-center transition-all duration-200 hover:opacity-90 active:scale-[0.98]"
-                  style={{ fontFamily: F, background: '#1B3B2B' }}
+                  style={{ fontFamily: F, background: c.forest, color: c.bg, border: `1px solid ${c.forest}` }}
                 >
                   Back to dashboard
                 </Link>

@@ -278,11 +278,15 @@ export async function enablePushNotifications(
   assertOwnUid(uid)
   try {
     const vapidKey = import.meta.env.VITE_FIREBASE_VAPID_KEY as string
-    if (!vapidKey) return { error: 'Push notifications are not configured yet.' }
-    if (!(await isPushSupported())) return { error: 'This browser does not support push notifications.' }
+    if (!vapidKey) return { error: 'Push notifications are not configured for this deployment yet.' }
+    if (!(await isPushSupported())) return { error: 'This browser does not support web push. Try Chrome on Android over HTTPS.' }
+
+    if (Notification.permission === 'denied') {
+      return { error: 'Notifications are blocked for Koru. Allow them in your browser site settings, then try again.' }
+    }
 
     const permission = await Notification.requestPermission()
-    if (permission !== 'granted') return { error: 'Notification permission was not granted.' }
+    if (permission !== 'granted') return { error: 'Notification permission was not granted. Android will not show Koru alerts until you allow it.' }
 
     const registration = await navigator.serviceWorker.register('/sw.js')
     const token = await getToken(getMessaging(app), {
@@ -299,6 +303,24 @@ export async function enablePushNotifications(
   } catch (err) {
     console.error('[Koru] Push notification setup failed:', err)
     return { error: 'Could not enable notifications. Please try again.' }
+  }
+}
+
+export async function sendTestPushNotification(): Promise<{ ok: true } | { error: string }> {
+  const user = auth.currentUser
+  if (!user) return { error: 'Please sign in again before testing notifications.' }
+
+  try {
+    const token = await user.getIdToken()
+    const response = await fetch('/api/push/test', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    const payload = await response.json() as { error?: string }
+    if (!response.ok) return { error: payload.error || 'The test notification could not be sent.' }
+    return { ok: true }
+  } catch {
+    return { error: 'The test notification could not be sent. Check your connection and try again.' }
   }
 }
 
@@ -698,7 +720,7 @@ export async function markNotificationRead(uid: string, id: string): Promise<voi
   await updateDoc(doc(db, 'users', uid, 'notifications', id), { read: true })
 }
 
-// ── Check-ins ───────────────���────────────────────────────────────────────────
+// ── Check-ins ───────────────���────────────────────────────────────────��───────
 
 export type MoodKey = 'thriving' | 'good' | 'okay' | 'low' | 'rough'
 

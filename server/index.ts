@@ -170,7 +170,55 @@ async function requestGroq(apiKey: string, body: Record<string, unknown>) {
   }
 }
 
-app.post('/api/assistant/chat', async (req, res) => {
+  app.post('/api/push/test', async (req, res) => {
+    try {
+      const decoded = await getAuthenticatedUser(req)
+      const profileRef = getFirestore(getAdminApp()).doc(`users/${decoded.uid}/profile/main`)
+      const profile = await profileRef.get()
+      const data = profile.data() ?? {}
+      const token = typeof data.pushToken === 'string' ? data.pushToken : ''
+      if (!data.pushNotificationsEnabled || !token) {
+        res.status(400).json({ error: 'Enable browser notifications on this device first.' })
+        return
+      }
+
+      await getMessaging(getAdminApp()).send({
+        token,
+        notification: {
+          title: 'Koru is connected',
+          body: 'This is a test reminder. Your notification setup is working.',
+        },
+        data: { url: '/profile', category: 'test' },
+        webpush: {
+          fcmOptions: { link: `${process.env.APP_URL ?? 'https://koru.com.ng'}/profile` },
+          notification: {
+            icon: `${process.env.APP_URL ?? 'https://koru.com.ng'}/apple-touch-icon.png`,
+            badge: `${process.env.APP_URL ?? 'https://koru.com.ng'}/favicon.svg`,
+            tag: 'koru-test',
+          },
+        },
+      })
+      res.json({ ok: true })
+    } catch (err) {
+      const code = err && typeof err === 'object' && 'code' in err ? String((err as { code?: unknown }).code) : ''
+      if (code.includes('registration-token-not-registered') || code.includes('invalid-registration-token')) {
+        try {
+          const decoded = await getAuthenticatedUser(req)
+          await getFirestore(getAdminApp()).doc(`users/${decoded.uid}/profile/main`).update({
+            pushToken: FieldValue.delete(),
+            pushNotificationsEnabled: false,
+            updatedAt: new Date(),
+          })
+        } catch { /* token cleanup is best effort */ }
+        res.status(410).json({ error: 'This device notification session expired. Turn notifications off and on again.' })
+        return
+      }
+      console.error('[Koru] Test push failed:', err instanceof Error ? err.message : err)
+      res.status(500).json({ error: 'The test notification could not be sent.' })
+    }
+  })
+
+  app.post('/api/assistant/chat', async (req, res) => {
   try {
     let decoded
     try {
@@ -187,7 +235,7 @@ app.post('/api/assistant/chat', async (req, res) => {
       content: String(item && typeof item === 'object' && 'content' in item ? item.content : '').slice(0, 4000),
     })).filter(item => item.content) : []
     if (!messages.length) { res.status(400).json({ error: 'Tell the assistant what happened first.' }); return }
-    const system = `You are Koru's reflection assistant. Your job is to help the user understand a real situation, not decide for them. Ask at most two grounded follow-ups if the story is too thin. When there is enough context, reflect what you heard and offer 2-3 distinct paths with one honest tradeoff each, then ask which path they want to explore. Use short direct paragraphs, no fake enthusiasm, no diagnosis, and no therapy-speak as decoration. You are not a therapist or emergency service. SAFETY OVERRIDE: if the user mentions suicidal thoughts, self-harm, physical violence, threats, fear for immediate safety, or a minor describing abuse, stop normal flow and lead with plain validation and this clear resource block: If you are in immediate danger, call 112 (nationwide emergency) or 767 (Lagos). SURPIN runs a free 24/7 suicide-prevention helpline across Nigeria. MANI offers free confidential phone support. If this involves violence or abuse, Women Safe House Sustenance Initiative supports women and girls specifically. Encourage contacting a trusted person now. Never gate safety resources.`
+    const system = `You are Koru's reflection assistant. Your job is to help the user understand a real situation, not decide for them. On the first reply, ask exactly one short, specific clarifying question before giving advice. Do not assume what happened, who is at fault, or what the user wants. If the user answers, reflect only what is known and offer at most 2 paths with one short tradeoff each. Keep every reply under 90 words unless safety requires more. Use plain text only: no Markdown, no asterisks, no numbered essay, no headings, no fake enthusiasm, no diagnosis, and no therapy-speak as decoration. You are not a therapist or emergency service. SAFETY OVERRIDE: if the user mentions suicidal thoughts, self-harm, physical violence, threats, fear for immediate safety, or a minor describing abuse, stop normal flow and lead with plain validation and this clear resource block: If you are in immediate danger, call 112 (nationwide emergency) or 767 (Lagos). SURPIN runs a free 24/7 suicide-prevention helpline across Nigeria. MANI offers free confidential phone support. If this involves violence or abuse, Women Safe House Sustenance Initiative supports women and girls specifically. Encourage contacting a trusted person now. Never gate safety resources.`
     const { response: groqResponse, data } = await requestGroq(apiKey, { model: 'openai/gpt-oss-120b', temperature: 0.45, max_tokens: 700, messages: [{ role: 'system', content: system }, ...messages] })
     if (!groqResponse.ok) { console.error('[Koru] assistant request failed for', decoded.uid, data.error?.message); res.status(502).json({ error: 'The assistant could not respond.' }); return }
     const message = data.choices?.[0]?.message?.content?.trim()
@@ -228,7 +276,7 @@ app.post('/api/journal/insight', async (req, res) => {
       temperature: 0.4,
       max_tokens: 500,
       messages: [
-        { role: 'system', content: 'You are Koru, a warm Nigerian self-reflection guide. Return a concise, non-clinical journal insight with exactly three short sections: Notice, Consider, Next gentle step. Never diagnose, predict, or claim certainty. Do not repeat private text unnecessarily. Encourage professional support if the entry suggests immediate danger.' },
+        { role: 'system', content: 'You are Koru, a warm Nigerian self-reflection guide. Return plain text under 70 words with exactly three very short lines: Notice, Consider, Next gentle step. Do not use Markdown, asterisks, bullets, or long explanations. Never diagnose, predict, or claim certainty. Do not repeat private text unnecessarily. Encourage professional support if the entry suggests immediate danger.' },
         { role: 'user', content: context },
       ],
     })
@@ -293,7 +341,7 @@ function getResend() {
   return new Resend(key)
 }
 
-// ── Send a weekly reflection reminder ────────────────────────────────────────
+// ── Send a weekly reflection reminder ────────────���───────────────────────────
 app.post('/api/send-reminder', async (req, res) => {
   try {
     const decoded = await getAuthenticatedUser(req)

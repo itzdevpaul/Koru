@@ -1,0 +1,25 @@
+import { useEffect, useState } from 'react'
+import { useTheme } from '../context/ThemeContext'
+
+export default function AccessibilityTools() {
+  const { c } = useTheme()
+  const [open, setOpen] = useState(false)
+  const [largeText, setLargeText] = useState(() => localStorage.getItem('koru-large-text') === 'true')
+  const [reducedMotion, setReducedMotion] = useState(() => localStorage.getItem('koru-reduced-motion') === 'true')
+
+  useEffect(() => {
+    document.documentElement.dataset.largeText = String(largeText)
+    document.documentElement.dataset.reducedMotion = String(reducedMotion)
+    localStorage.setItem('koru-large-text', String(largeText))
+    localStorage.setItem('koru-reduced-motion', String(reducedMotion))
+  }, [largeText, reducedMotion])
+
+  return <div className="fixed bottom-4 left-4 z-40" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+    {open && <div className="mb-2 w-56 rounded-2xl p-4 shadow-lg" style={{ background: c.card, border: `1px solid ${c.cardBorder}`, color: c.forest }}>
+      <p className="text-sm font-bold">Reading preferences</p>
+      <label className="mt-3 flex items-center justify-between gap-3 text-xs"><span>Larger text</span><input type="checkbox" checked={largeText} onChange={event => setLargeText(event.target.checked)} /></label>
+      <label className="mt-3 flex items-center justify-between gap-3 text-xs"><span>Reduce motion</span><input type="checkbox" checked={reducedMotion} onChange={event => setReducedMotion(event.target.checked)} /></label>
+    </div>}
+    <button type="button" aria-expanded={open} aria-label="Open reading preferences" onClick={() => setOpen(value => !value)} className="rounded-full px-4 py-3 text-xs font-bold shadow-lg" style={{ background: c.forest, color: c.bg }}>Aa</button>
+  </div>
+}

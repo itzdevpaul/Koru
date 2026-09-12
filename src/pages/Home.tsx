@@ -55,6 +55,7 @@ export default function Home() {
   const [checkInSaving, setCheckInSaving] = useState(false)
   const [checkInSharing, setCheckInSharing] = useState(false)
   const [checkInShareMsg, setCheckInShareMsg] = useState('')
+  const [checkInSavedMsg, setCheckInSavedMsg] = useState('')
   const [showFriendNudge, setShowFriendNudge] = useState(false)
   const [nudgeCopied, setNudgeCopied] = useState(false)
   const [showReflection, setShowReflection] = useState(false)
@@ -182,6 +183,8 @@ export default function Home() {
     setTodayCheckIn({ mood: checkInMood, energy: checkInEnergy, reflection: checkInReflection.trim(), prompt: todayPrompt })
     setEditingCheckIn(false)
     setCheckInSaving(false)
+    setCheckInSavedMsg(isNew ? 'Check-in saved.' : 'Check-in updated.')
+    window.setTimeout(() => setCheckInSavedMsg(''), 3000)
 
     // Show friend nudge only on first save of a meaningful session (once per day)
     const dismissed = sessionStorage.getItem('koru-friend-nudge-dismissed')
@@ -457,6 +460,11 @@ export default function Home() {
           <p className="text-base mt-3 max-w-md" style={{ fontFamily: I, color: c.body, lineHeight: 1.65 }}>
             Koru is your space to think clearly, know yourself better, and navigate what comes next.
           </p>
+          <nav aria-label="Quick actions" className="mt-5 flex flex-wrap gap-2">
+            <Link to="/journal" className="rounded-xl border px-3 py-2 text-xs font-semibold" style={{ color: c.forest, borderColor: c.cardBorder, background: c.card }}>Write privately</Link>
+            <Link to="/assistant" className="rounded-xl border px-3 py-2 text-xs font-semibold" style={{ color: c.forest, borderColor: c.cardBorder, background: c.card }}>Talk it through</Link>
+            {results.length > 0 && <Link to="/quiz/life-stage-archetype" className="rounded-xl border px-3 py-2 text-xs font-semibold" style={{ color: c.forest, borderColor: c.cardBorder, background: c.card }}>Resume exploring</Link>}
+          </nav>
         </div>
 
         {/* ── Future self check-in ── */}
@@ -714,6 +722,7 @@ export default function Home() {
                       Cancel
                     </button>
                   )}
+                  {checkInSavedMsg && <p className="text-xs font-semibold" style={{ fontFamily: I, color: c.forest }} aria-live="polite">{checkInSavedMsg}</p>}
                 </div>
               </div>
             )}
