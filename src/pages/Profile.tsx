@@ -19,6 +19,7 @@ import {
   type AppNotification,
 } from '../firebase'
 import KoruLoader from '../components/KoruLoader'
+import SupportButton from '../components/SupportButton'
 
 const FOCUS_OPTIONS = [
   { id: 'career', emoji: '🧭', label: 'Career & Hobbies' },
@@ -456,6 +457,12 @@ export default function Profile() {
               </button>
             </div>
           )}
+        </section>
+
+        <section className="mb-6 rounded-3xl p-5" style={{ background: c.card, border: `1px solid ${c.cardBorder}` }}>
+          <p className="text-sm font-semibold" style={{ fontFamily: F, color: c.forest }}>Need help?</p>
+          <p className="mt-1 text-xs leading-5" style={{ fontFamily: I, color: c.body }}>Contact Koru support about your account, reminders, payments, or anything that feels unclear.</p>
+          <div className="mt-4"><SupportButton inline /></div>
         </section>
 
         {/* Preferences */}
