@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useTheme } from '../context/ThemeContext'
 
@@ -23,17 +23,33 @@ export default function MobileNavigation() {
   const location = useLocation()
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
+  const [recent, setRecent] = useState<string[]>([])
+
+  useEffect(() => {
+    const stored = window.localStorage.getItem('koru-recent-pages')
+    setRecent(stored ? JSON.parse(stored) : [])
+  }, [location.pathname])
+
+  useEffect(() => {
+    if (location.pathname === '/' || location.pathname.startsWith('/sign') || location.pathname.startsWith('/onboarding')) return
+    const next = [location.pathname, ...recent.filter(path => path !== location.pathname)].slice(0, 4)
+    setRecent(next)
+    window.localStorage.setItem('koru-recent-pages', JSON.stringify(next))
+  }, [location.pathname])
+
   if (location.pathname === '/' || location.pathname.startsWith('/sign') || location.pathname.startsWith('/onboarding')) return null
   const results = searchable.filter(item => item.title.toLowerCase().includes(query.toLowerCase()))
   return <>
     {open && <div className="fixed inset-0 z-50 flex items-end bg-black/35 p-4" role="dialog" aria-modal="true" aria-label="Search Koru">
       <div className="w-full rounded-3xl p-4 shadow-2xl" style={{ background: c.card, border: `1px solid ${c.cardBorder}` }}>
         <div className="flex items-center gap-2"><input autoFocus value={query} onChange={event => setQuery(event.target.value)} placeholder="Search Koru" aria-label="Search Koru" className="min-w-0 flex-1 rounded-xl border px-3 py-3 text-sm" style={{ background: c.bg, color: c.forest, borderColor: c.cardBorder }} /><button onClick={() => setOpen(false)} className="rounded-xl border px-3 py-3 text-sm" style={{ color: c.forest, borderColor: c.cardBorder }}>Close</button></div>
+        {recent.length > 0 && !query && <div className="mt-4"><p className="px-1 text-xs font-semibold uppercase tracking-wider" style={{ color: c.muted }}>Recent</p><div className="mt-2 grid gap-2">{recent.map(path => { const item = searchable.find(entry => entry.path === path); return item ? <Link key={`recent-${path}`} onClick={() => setOpen(false)} to={item.path} className="rounded-xl p-3 text-sm" style={{ background: c.bg, color: c.forest }}>{item.title}</Link> : null })}</div></div>}
         <div className="mt-3 grid gap-2">{results.map(item => <Link key={item.path} onClick={() => setOpen(false)} to={item.path} className="rounded-xl p-3 text-sm font-semibold" style={{ background: c.bg, color: c.forest }}>{item.title}</Link>)}</div>
         {!results.length && <p className="p-3 text-sm" style={{ color: c.muted }}>No matching tools yet.</p>}
       </div>
     </div>}
-    <div className="fixed inset-x-3 bottom-3 z-40 flex items-center justify-around rounded-2xl px-2 py-2 shadow-xl md:hidden" style={{ background: c.card, border: `1px solid ${c.cardBorder}`, paddingBottom: 'calc(0.5rem + env(safe-area-inset-bottom))' }}>
+    <p className="sr-only" aria-live="polite">Current page: {location.pathname.replace('/', '') || 'home'}</p>
+    <div data-mobile-nav className="fixed inset-x-3 bottom-3 z-40 flex items-center justify-around rounded-2xl px-2 py-2 shadow-xl md:hidden" style={{ background: c.card, border: `1px solid ${c.cardBorder}`, paddingBottom: 'calc(0.5rem + env(safe-area-inset-bottom))' }}>
       {items.map(item => <Link key={item.path} to={item.path} className="rounded-xl px-2 py-2 text-center text-[11px] font-semibold" style={{ color: location.pathname === item.path ? c.forest : c.muted }}>{item.label}</Link>)}
       <button onClick={() => setOpen(true)} aria-label="Search Koru" className="rounded-xl px-2 py-2 text-[11px] font-semibold" style={{ color: c.forest }}>Search</button>
     </div>
