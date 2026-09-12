@@ -20,12 +20,12 @@ export default function Roadmap() {
           <Link to="/home" className="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold transition-opacity hover:opacity-80" style={{ color: c.forest, background: c.card, border: `1px solid ${c.cardBorder}` }}><span aria-hidden="true">←</span> Back to Koru home</Link>
           <p className="mt-8 text-xs font-semibold uppercase tracking-[0.2em]" style={{ color: c.muted }}>The Koru roadmap</p>
           <h1 className="mt-3 max-w-3xl text-4xl font-bold tracking-tight sm:text-6xl" style={{ fontFamily: 'Georgia, serif' }}>More ways to find your next clear step.</h1>
-          <p className="mt-5 max-w-2xl text-base leading-7" style={{ color: c.body }}>Tools for the real places life gets complicated: conversations, transitions, feelings, and the small choices that shape what comes next.</p>
+          <p className="mt-5 max-w-2xl text-base leading-7" style={{ color: c.body }}>Available tools are ready to use now. The ideas below are a transparent backlog, not promises that every feature is already live.</p>
         </div>
         <Link to="/assistant" className="rounded-2xl border px-4 py-3 text-sm font-bold transition-opacity hover:opacity-80" style={{ background: c.surface, borderColor: c.cardBorder, color: c.forest }}>Talk it through</Link>
       </header>
 
-      <section className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <section aria-label="Roadmap overview" className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {features.map(feature => <a key={feature.id} href={feature.href} className="group flex min-h-64 flex-col justify-between rounded-3xl p-6 transition-transform hover:-translate-y-1" style={{ background: feature.tone === 'forest' ? c.forest : feature.tone === 'sage' ? c.surface : c.card, color: feature.tone === 'forest' ? '#fff' : c.forest, border: `1px solid ${c.cardBorder}`, boxShadow: c.shadow }}>
           <div>
             <div className="flex items-center justify-between gap-3"><span className="text-xs font-semibold uppercase tracking-[0.16em] opacity-70">{feature.eyebrow}</span><span className="text-xs opacity-70">{feature.status}</span></div>

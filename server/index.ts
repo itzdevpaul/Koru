@@ -170,7 +170,55 @@ async function requestGroq(apiKey: string, body: Record<string, unknown>) {
   }
 }
 
-app.post('/api/assistant/chat', async (req, res) => {
+  app.post('/api/push/test', async (req, res) => {
+    try {
+      const decoded = await getAuthenticatedUser(req)
+      const profileRef = getFirestore(getAdminApp()).doc(`users/${decoded.uid}/profile/main`)
+      const profile = await profileRef.get()
+      const data = profile.data() ?? {}
+      const token = typeof data.pushToken === 'string' ? data.pushToken : ''
+      if (!data.pushNotificationsEnabled || !token) {
+        res.status(400).json({ error: 'Enable browser notifications on this device first.' })
+        return
+      }
+
+      await getMessaging(getAdminApp()).send({
+        token,
+        notification: {
+          title: 'Koru is connected',
+          body: 'This is a test reminder. Your notification setup is working.',
+        },
+        data: { url: '/profile', category: 'test' },
+        webpush: {
+          fcmOptions: { link: `${process.env.APP_URL ?? 'https://koru.com.ng'}/profile` },
+          notification: {
+            icon: `${process.env.APP_URL ?? 'https://koru.com.ng'}/apple-touch-icon.png`,
+            badge: `${process.env.APP_URL ?? 'https://koru.com.ng'}/favicon.svg`,
+            tag: 'koru-test',
+          },
+        },
+      })
+      res.json({ ok: true })
+    } catch (err) {
+      const code = err && typeof err === 'object' && 'code' in err ? String((err as { code?: unknown }).code) : ''
+      if (code.includes('registration-token-not-registered') || code.includes('invalid-registration-token')) {
+        try {
+          const decoded = await getAuthenticatedUser(req)
+          await getFirestore(getAdminApp()).doc(`users/${decoded.uid}/profile/main`).update({
+            pushToken: FieldValue.delete(),
+            pushNotificationsEnabled: false,
+            updatedAt: new Date(),
+          })
+        } catch { /* token cleanup is best effort */ }
+        res.status(410).json({ error: 'This device notification session expired. Turn notifications off and on again.' })
+        return
+      }
+      console.error('[Koru] Test push failed:', err instanceof Error ? err.message : err)
+      res.status(500).json({ error: 'The test notification could not be sent.' })
+    }
+  })
+
+  app.post('/api/assistant/chat', async (req, res) => {
   try {
     let decoded
     try {

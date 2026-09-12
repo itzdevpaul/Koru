@@ -10,6 +10,7 @@ import {
   sendReminderEmail,
   enablePushNotifications,
   disablePushNotifications,
+  sendTestPushNotification,
   getNotifications,
   markNotificationRead,
   logOut,
@@ -149,6 +150,14 @@ export default function Profile() {
 
     setPushBusy(false)
     setTimeout(() => setPushMsg(''), 5000)
+  }
+
+  async function handleTestPush() {
+    setPushBusy(true)
+    setPushMsg('Sending a test notification…')
+    const result = await sendTestPushNotification()
+    setPushMsg('error' in result ? result.error : 'Test sent. Check your notification shade.')
+    setPushBusy(false)
   }
 
   async function handleInviteShare() {
@@ -417,8 +426,11 @@ export default function Profile() {
             </button>
           </div>
           {pushMsg && (
-            <p className="text-xs mt-3" style={{ fontFamily: I, color: c.body }}>{pushMsg}</p>
-          )}
+  <div className="mt-3 flex flex-wrap items-center gap-3">
+  {pushMsg && <p className="text-xs" style={{ fontFamily: I, color: c.body }}>{pushMsg}</p>}
+  {pushOptIn && <button onClick={handleTestPush} disabled={pushBusy} className="rounded-lg border px-3 py-2 text-xs font-semibold disabled:opacity-50" style={{ fontFamily: I, color: c.forest, borderColor: c.cardBorder, background: c.card }}>Send test notification</button>}
+  </div>
+  )}
           {pushOptIn && (
             <div className="mt-4 pt-4 space-y-3" style={{ borderTop: `1px solid ${c.cardBorder}` }}>
               <p className="text-xs font-semibold" style={{ fontFamily: F, color: c.forest }}>Choose what Koru sends</p>
