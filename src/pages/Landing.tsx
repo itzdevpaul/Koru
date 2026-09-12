@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import KoruLogo from '../components/KoruLogo'
 
@@ -6,6 +6,23 @@ import KoruLogo from '../components/KoruLogo'
    Landing Page
 ───────────────────────────────────────── */
 export default function Landing() {
+  const [menuOpen, setMenuOpen] = useState(false)
+
+  useEffect(() => {
+    if (!menuOpen) return
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setMenuOpen(false)
+    }
+    document.addEventListener('keydown', closeOnEscape)
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.removeEventListener('keydown', closeOnEscape)
+      document.body.style.overflow = ''
+    }
+  }, [menuOpen])
+
+  const closeMenu = () => setMenuOpen(false)
+
   return (
     <div
       style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
@@ -45,7 +62,24 @@ export default function Landing() {
             <KoruLogo size={34} />
           </Link>
 
-          <div className="flex items-center gap-3">
+          <button
+            type="button"
+            aria-expanded={menuOpen}
+            aria-controls="landing-menu"
+            aria-label={menuOpen ? 'Close navigation menu' : 'Open navigation menu'}
+            onClick={() => setMenuOpen(current => !current)}
+            className="relative z-30 flex h-11 w-11 items-center justify-center rounded-2xl border transition-colors hover:bg-[rgba(27,59,43,0.06)] sm:hidden"
+            style={{ borderColor: 'rgba(27,59,43,0.18)', color: '#1B3B2B' }}
+          >
+            <span className="sr-only">{menuOpen ? 'Close menu' : 'Open menu'}</span>
+            <span aria-hidden="true" className="flex w-5 flex-col gap-1.5">
+              <span className={`block h-0.5 rounded-full bg-current transition-transform ${menuOpen ? 'translate-y-2 rotate-45' : ''}`} />
+              <span className={`block h-0.5 rounded-full bg-current transition-opacity ${menuOpen ? 'opacity-0' : ''}`} />
+              <span className={`block h-0.5 rounded-full bg-current transition-transform ${menuOpen ? '-translate-y-2 -rotate-45' : ''}`} />
+            </span>
+          </button>
+
+          <div className="hidden items-center gap-3 sm:flex">
             <a
               href="#why-koru"
               className="text-sm font-medium px-4 py-2 rounded-full transition-all duration-200 hover:bg-[rgba(27,59,43,0.06)]"
@@ -69,6 +103,33 @@ export default function Landing() {
             </Link>
           </div>
         </nav>
+
+        {menuOpen && (
+          <div className="fixed inset-0 z-20 sm:hidden" aria-label="Navigation menu">
+            <button type="button" aria-label="Close navigation menu" onClick={closeMenu} className="absolute inset-0 h-full w-full bg-[#1B3B2B]/20 backdrop-blur-sm" />
+            <div id="landing-menu" className="absolute inset-x-4 top-[5.25rem] rounded-[1.75rem] border border-[#C8DCC9] bg-[#FBF9F5] p-3 shadow-2xl shadow-[#1B3B2B]/10">
+              <div className="px-4 pb-3 pt-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#6B8F71]">Explore Koru</p>
+                <p className="mt-1 text-sm text-[#53665A]">A quiet place to understand yourself and move forward.</p>
+              </div>
+              <div className="grid gap-1">
+                {[
+                  ['About Koru', '/about'],
+                  ['Frequently asked questions', '/faq'],
+                  ['Pricing and access', '/pricing'],
+                  ['Privacy', '/privacy-policy'],
+                  ['Terms of service', '/terms-of-service'],
+                ].map(([label, path]) => (
+                  <Link key={path} to={path} onClick={closeMenu} className="rounded-xl px-4 py-3 text-sm font-semibold text-[#1B3B2B] transition-colors hover:bg-[#EAF2EB]">{label}</Link>
+                ))}
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-2 border-t border-[#DCE5DE] pt-3">
+                <Link to="/signin" onClick={closeMenu} className="rounded-xl border border-[#1B3B2B]/20 px-4 py-3 text-center text-sm font-semibold text-[#1B3B2B]">Sign in</Link>
+                <Link to="/signup" onClick={closeMenu} className="rounded-xl bg-[#1B3B2B] px-4 py-3 text-center text-sm font-semibold text-[#FBF9F5]">Get started</Link>
+              </div>
+            </div>
+          </div>
+        )}
       </header>
 
       {/* ── Hero ── */}
