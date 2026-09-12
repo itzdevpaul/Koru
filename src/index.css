@@ -137,6 +137,12 @@ body {
 [data-reduced-motion="true"] *::before,
 [data-reduced-motion="true"] *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: 0.01ms !important; }
 
+@media print {
+  body { background: white !important; }
+  button, nav, header, [data-mobile-nav] { display: none !important; }
+  main { padding: 0 !important; }
+}
+
 /* ── Focus-visible ring ── */
 :focus-visible {
   outline: 2px solid #A2BFA6;

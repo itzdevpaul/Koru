@@ -238,6 +238,8 @@ export default function ClarityCardPage() {
           </div>
 
           {/* Card body — white */}
+          <details open className="group">
+          <summary className="cursor-pointer px-7 py-4 text-sm font-semibold" style={{ background: '#fff', color: '#1B3B2B' }}>View detailed insights</summary>
           <div className="px-7 py-7 flex flex-col gap-5" style={{ background: '#fff' }}>
 
             {/* Boundary Confidence */}
@@ -305,6 +307,7 @@ export default function ClarityCardPage() {
               )}
             </div>
           </div>
+          </details>
 
           {/* Card footer */}
           <div className="px-7 py-3.5 text-center" style={{ background: '#f8f6f1' }}>
@@ -329,6 +332,9 @@ export default function ClarityCardPage() {
               {shareMsg}
             </p>
           )}
+          <button type="button" onClick={() => window.print()} className="w-full rounded-2xl border py-3 text-sm font-semibold transition-opacity hover:opacity-80" style={{ fontFamily: I, color: c.forest, borderColor: c.cardBorder, background: c.card }}>
+            Print or save report
+          </button>
           <button
             onClick={() => navigate('/home')}
             className="w-full py-3 rounded-2xl text-sm transition-opacity hover:opacity-60"
