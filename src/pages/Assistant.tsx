@@ -5,6 +5,10 @@ import { useTheme } from '../context/ThemeContext'
 
 type Message = { role: 'user' | 'assistant'; content: string }
 
+function cleanAssistantText(value: string) {
+  return value.replace(/\*\*(.*?)\*\*/g, '$1').replace(/\*(.*?)\*/g, '$1').replace(/^#{1,6}\s*/gm, '').replace(/^\s*[-•]\s*/gm, '').replace(/\n{3,}/g, '\n\n').trim()
+}
+
 export default function Assistant() {
   const { user } = useAuth()
   const { c } = useTheme()
@@ -33,7 +37,8 @@ export default function Assistant() {
       })
       const data = await response.json() as { message?: string; error?: string }
       if (!response.ok) throw new Error(data.error ?? 'The assistant is unavailable.')
-      setMessages(current => [...current, { role: 'assistant', content: data.message ?? '' }])
+      setLastFailedMessage(null)
+      setMessages(current => [...current, { role: 'assistant', content: cleanAssistantText(data.message ?? '') }])
     } catch (err) {
       setLastFailedMessage(text)
       setError(err instanceof Error ? err.message : 'The assistant is unavailable.')

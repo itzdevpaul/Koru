@@ -48,6 +48,8 @@ export default function Quiz() {
   const progress = phase === 'result' ? 100 : (currentQ / quiz.questions.length) * 100
 
   function handleStart() {
+    setAnswers({})
+    setResult(null)
     setPhase('question')
     setCurrentQ(0)
     setSelected(null)
@@ -177,8 +179,8 @@ export default function Quiz() {
       >
         <Link
           to="/home"
-          className="flex items-center gap-1.5 text-sm transition-opacity hover:opacity-60"
-          style={{ fontFamily: I, color: c.muted }}
+          className="flex items-center gap-1.5 rounded-xl border px-3 py-2 text-sm transition-opacity hover:opacity-80"
+          style={{ fontFamily: I, color: c.forest, background: c.card, borderColor: c.cardBorder }}
         >
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
             <path d="M9 2L4 7l5 5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
@@ -223,7 +225,7 @@ export default function Quiz() {
               <button
                 onClick={handleStart}
                 className="px-8 py-4 rounded-2xl text-sm font-semibold text-white transition-all duration-200 hover:opacity-90 active:scale-95"
-                style={{ fontFamily: F, background: '#1B3B2B' }}
+                style={{ fontFamily: F, background: c.forest, color: c.bg, border: `1px solid ${c.forest}` }}
               >
                 Start quiz →
               </button>
@@ -270,7 +272,7 @@ export default function Quiz() {
                 onClick={handleNext}
                 disabled={!selected || animating}
                 className="w-full py-3.5 rounded-2xl text-sm font-semibold text-white transition-all duration-200 hover:opacity-90 active:scale-[0.98] disabled:opacity-40"
-                style={{ fontFamily: F, background: '#1B3B2B' }}
+                style={{ fontFamily: F, background: c.forest, color: c.bg, border: `1px solid ${c.forest}` }}
               >
                 {currentQ < quiz.questions.length - 1 ? 'Next →' : 'See my result →'}
               </button>
@@ -473,7 +475,7 @@ export default function Quiz() {
                 <Link
                   to="/home"
                   className="flex-1 py-3.5 rounded-2xl text-sm font-semibold text-white text-center transition-all duration-200 hover:opacity-90 active:scale-[0.98]"
-                  style={{ fontFamily: F, background: '#1B3B2B' }}
+                  style={{ fontFamily: F, background: c.forest, color: c.bg, border: `1px solid ${c.forest}` }}
                 >
                   Back to dashboard
                 </Link>

@@ -1464,12 +1464,12 @@ export const quizzes: Quiz[] = [
   {
     id: 'life-stage-archetype', emoji: '🧭', title: 'What season of life are you actually in?', description: 'A grounded quiz for when the old plan does not fit and the next one has not arrived yet.', category: 'Identity & Personal Growth', estimatedMinutes: 4,
     questions: [
-      ['The thing taking up the most room in your head lately is…', ['What I want next', 'How to keep everything from slipping', 'Whether this relationship or job still fits', 'How to feel like myself again']],
-      ['When someone asks how you are, your honest answer is closest to…', ['I am ready for a change, I just have not named it', 'I am managing, but there is not much spare capacity', 'I keep changing my mind because something feels off', 'I look fine from the outside and feel far away inside']],
-      ['A decision you keep postponing is probably about…', ['Giving yourself permission', 'Having enough support', 'Admitting what has changed', 'Trusting your own read of the situation']],
-      ['What would make the next month feel lighter?', ['A direction to move toward', 'One less responsibility', 'A conversation I have been avoiding', 'Time without having to perform']],
-      ['The advice you are least interested in hearing is…', ['Be realistic', 'Just push through', 'Give it more time', 'You are overthinking it']],
-      ['The small truth you already know is…', ['I cannot keep calling this a maybe', 'I need help before I burn out', 'The old arrangement is costing me', 'I have been missing myself']],
+['The thing taking up the most room in your head lately is…', 'What I want next', 'How to keep everything from slipping', 'Whether this relationship or job still fits', 'How to feel like myself again'],
+  ['When someone asks how you are, your honest answer is closest to…', 'I am ready for a change, I just have not named it', 'I am managing, but there is not much spare capacity', 'I keep changing my mind because something feels off', 'I look fine from the outside and feel far away inside'],
+  ['A decision you keep postponing is probably about…', 'Giving yourself permission', 'Having enough support', 'Admitting what has changed', 'Trusting your own read of the situation'],
+  ['What would make the next month feel lighter?', 'A direction to move toward', 'One less responsibility', 'A conversation I have been avoiding', 'Time without having to perform'],
+  ['The advice you are least interested in hearing is…', 'Be realistic', 'Just push through', 'Give it more time', 'You are overthinking it'],
+  ['The small truth you already know is…', 'I cannot keep calling this a maybe', 'I need help before I burn out', 'The old arrangement is costing me', 'I have been missing myself'],
     ].map((question, i) => ({ id: `q${i + 1}`, text: question[0] as string, options: question.slice(1).map((text, j) => ({ id: String.fromCharCode(97 + j), text: text as string, scores: { becoming: j === 0 ? 3 : 0, carrying: j === 1 ? 3 : 0, recalibrating: j === 2 ? 3 : 0, returning: j === 3 ? 3 : 0 } })) })),
     results: [
       { id: 'becoming', title: 'The Becoming Season', emoji: '🌱', tagline: 'The next version is asking for room.', description: 'You may not need a five-year plan as much as you need permission to stop treating the old one as binding. Start with one choice that makes your future more possible, then let the evidence build.', traits: ['Ready for change', 'Curious', 'Outgrowing an old script', 'Needs a first move'], color: '#1B3B2B', tagBg: 'rgba(162,191,166,0.25)' },
