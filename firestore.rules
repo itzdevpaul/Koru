@@ -102,7 +102,9 @@ service cloud.firestore {
         && request.resource.data.contentEnc is map
         && request.resource.data.contentEnc.keys().hasOnly(['c', 'i'])
         && request.resource.data.contentEnc.c is string
-        && request.resource.data.contentEnc.i is string;
+        && request.resource.data.contentEnc.c.size() <= 200000
+        && request.resource.data.contentEnc.i is string
+        && request.resource.data.contentEnc.i.size() <= 100;
       allow update: if isOwner(uid)
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'title', 'contentEnc', 'linkedQuizId', 'linkedCheckInDate', 'linkedIntention', 'updatedAt'
@@ -131,7 +133,7 @@ service cloud.firestore {
         && request.resource.data.keys().hasAll(['mood', 'energy', 'prompt', 'createdAt'])
         && request.resource.data.keys().hasAny(['reflection', 'reflectionEnc'])
         && (!request.resource.data.keys().hasAny(['reflection']) || (request.resource.data.reflection is string && request.resource.data.reflection.size() <= 1000))
-        && (!request.resource.data.keys().hasAny(['reflectionEnc']) || (request.resource.data.reflectionEnc is map && request.resource.data.reflectionEnc.keys().hasOnly(['c', 'i'])))
+        && (!request.resource.data.keys().hasAny(['reflectionEnc']) || (request.resource.data.reflectionEnc is map && request.resource.data.reflectionEnc.keys().hasOnly(['c', 'i']) && request.resource.data.reflectionEnc.c is string && request.resource.data.reflectionEnc.c.size() <= 200000 && request.resource.data.reflectionEnc.i is string && request.resource.data.reflectionEnc.i.size() <= 100))
         && request.resource.data.mood is string
         && request.resource.data.mood in ['thriving', 'good', 'okay', 'low', 'rough']
         && request.resource.data.energy is int

@@ -455,6 +455,16 @@ export default function Profile() {
           )}
         </section>
 
+        {/* Preferences */}
+        <section className="mb-6 rounded-3xl p-5" style={{ background: c.card, border: `1px solid ${c.cardBorder}` }}>
+          <p className="font-semibold text-sm mb-1" style={{ fontFamily: F, color: c.forest }}>Experience preferences</p>
+          <p className="text-xs leading-relaxed mb-4" style={{ fontFamily: I, color: c.body }}>These settings stay on this device and do not change your private Koru records.</p>
+          <div className="grid gap-3 text-xs" style={{ fontFamily: I, color: c.body }}>
+            <label className="flex items-center justify-between gap-3"><span>Show roadmap ideas</span><input type="checkbox" defaultChecked onChange={event => localStorage.setItem('koru-show-roadmap-ideas', String(event.target.checked))} /></label>
+            <label className="flex items-center justify-between gap-3"><span>Confirm before leaving forms</span><input type="checkbox" defaultChecked onChange={event => localStorage.setItem('koru-confirm-leave', String(event.target.checked))} /></label>
+          </div>
+        </section>
+
         {/* Appearance */}
         <section
           className="mb-6 p-5 rounded-3xl"

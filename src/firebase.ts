@@ -59,7 +59,15 @@ if (import.meta.env.DEV) {
   if (missing.length) console.warn('[Koru] Missing Firebase env vars:', missing)
 }
 
-const app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig)
+const hasFirebaseConfig = Object.values(firebaseConfig).every(Boolean)
+const app = getApps().length ? getApps()[0] : initializeApp(hasFirebaseConfig ? firebaseConfig : {
+  apiKey: 'preview-placeholder',
+  authDomain: 'preview.invalid',
+  projectId: 'preview-placeholder',
+  storageBucket: 'preview-placeholder.invalid',
+  messagingSenderId: '000000000000',
+  appId: 'preview-placeholder',
+})
 const appCheckSiteKey = import.meta.env.VITE_FIREBASE_APPCHECK_SITE_KEY as string | undefined
 if (appCheckSiteKey && typeof window !== 'undefined') {
   try {

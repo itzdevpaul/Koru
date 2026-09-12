@@ -28,6 +28,7 @@ import IdleTimer from './components/IdleTimer'
 import WhatsAppPrompt from './components/WhatsAppPrompt'
 import OfflineStatus from './components/OfflineStatus'
 import AccessibilityTools from './components/AccessibilityTools'
+import MobileNavigation from './components/MobileNavigation'
 import './index.css'
 
 if ('serviceWorker' in navigator && import.meta.env.PROD) {
@@ -49,6 +50,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
           <WhatsAppPrompt />
           <OfflineStatus />
           <AccessibilityTools />
+          <MobileNavigation />
           <Routes>
             {/* Public routes */}
             <Route path="/" element={<Landing />} />
