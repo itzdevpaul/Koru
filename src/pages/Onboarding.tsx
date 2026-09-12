@@ -24,6 +24,21 @@ export default function Onboarding() {
   const [saving, setSaving] = useState(false)
   const [checking, setChecking] = useState(true)
 
+  useEffect(() => {
+    try {
+      const saved = sessionStorage.getItem('koru-onboarding-progress')
+      if (!saved) return
+      const snapshot = JSON.parse(saved) as { step?: Step; focusAreas?: string[]; ageRange?: string }
+      if (snapshot.step && snapshot.step !== 'done') setStep(snapshot.step)
+      if (snapshot.focusAreas) setFocusAreas(snapshot.focusAreas)
+      if (snapshot.ageRange) setAgeRange(snapshot.ageRange)
+    } catch { sessionStorage.removeItem('koru-onboarding-progress') }
+  }, [])
+
+  useEffect(() => {
+    if (step !== 'done') sessionStorage.setItem('koru-onboarding-progress', JSON.stringify({ step, focusAreas, ageRange }))
+  }, [step, focusAreas, ageRange])
+
   const firstName = user?.displayName?.split(' ')[0] ?? 'there'
 
   // Skip onboarding if already complete
@@ -54,6 +69,7 @@ export default function Onboarding() {
       onboardingComplete: true,
     })
     setSaving(false)
+    sessionStorage.removeItem('koru-onboarding-progress')
     setStep('done')
   }
 

@@ -460,6 +460,11 @@ export default function Home() {
           <p className="text-base mt-3 max-w-md" style={{ fontFamily: I, color: c.body, lineHeight: 1.65 }}>
             Koru is your space to think clearly, know yourself better, and navigate what comes next.
           </p>
+          <nav aria-label="Quick actions" className="mt-5 flex flex-wrap gap-2">
+            <Link to="/journal" className="rounded-xl border px-3 py-2 text-xs font-semibold" style={{ color: c.forest, borderColor: c.cardBorder, background: c.card }}>Write privately</Link>
+            <Link to="/assistant" className="rounded-xl border px-3 py-2 text-xs font-semibold" style={{ color: c.forest, borderColor: c.cardBorder, background: c.card }}>Talk it through</Link>
+            {results.length > 0 && <Link to="/quiz/life-stage-archetype" className="rounded-xl border px-3 py-2 text-xs font-semibold" style={{ color: c.forest, borderColor: c.cardBorder, background: c.card }}>Resume exploring</Link>}
+          </nav>
         </div>
 
         {/* ── Future self check-in ── */}
