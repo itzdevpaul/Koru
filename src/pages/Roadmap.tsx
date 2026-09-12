@@ -23,7 +23,7 @@ export default function Roadmap() {
       </header>
 
       <section aria-label="Roadmap overview" className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {features.map(feature => <a key={feature.id} href={feature.href} className="group flex min-h-64 flex-col justify-between rounded-3xl p-6 transition-transform hover:-translate-y-1" style={{ background: feature.tone === 'forest' ? c.forest : feature.tone === 'sage' ? c.surface : c.card, color: feature.tone === 'forest' ? '#fff' : c.forest, border: `1px solid ${c.cardBorder}`, boxShadow: c.shadow }}>
+        {features.map(feature => <a key={feature.id} href={feature.status === 'Available' ? feature.href : undefined} aria-disabled={feature.status !== 'Available'} className={`group flex min-h-64 flex-col justify-between rounded-3xl p-6 transition-transform ${feature.status === 'Available' ? 'hover:-translate-y-1' : 'cursor-default'}`} style={{ background: feature.tone === 'forest' ? c.forest : feature.tone === 'sage' ? c.surface : c.card, color: feature.tone === 'forest' ? '#fff' : c.forest, border: `1px solid ${c.cardBorder}`, boxShadow: c.shadow }}>
           <div>
             <div className="flex items-center justify-between gap-3"><span className="text-xs font-semibold uppercase tracking-[0.16em] opacity-70">{feature.eyebrow}</span><span className="text-xs opacity-70">{feature.status}</span></div>
             <h2 className="mt-8 text-2xl font-bold" style={{ fontFamily: 'Georgia, serif' }}>{feature.title}</h2>

@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
@@ -32,6 +32,29 @@ export default function Quiz() {
   const [unlocking, setUnlocking] = useState(false)
   const [unlockError, setUnlockError] = useState('')
 
+  const progressKey = quiz ? `koru-quiz-progress-${quiz.id}` : ''
+
+  useEffect(() => {
+    if (!quiz || phase === 'result') return
+    const saved = sessionStorage.getItem(progressKey)
+    if (!saved) return
+    try {
+      const snapshot = JSON.parse(saved) as { phase: Phase; currentQ: number; answers: Record<string, string> }
+      if (snapshot.phase === 'question' && snapshot.currentQ < quiz.questions.length) {
+        setPhase('question')
+        setCurrentQ(snapshot.currentQ)
+        setAnswers(snapshot.answers)
+        setSelected(snapshot.answers[quiz.questions[snapshot.currentQ]?.id] ?? null)
+      }
+    } catch { sessionStorage.removeItem(progressKey) }
+  }, [quiz, progressKey, phase])
+
+  useEffect(() => {
+    if (quiz && phase === 'question') {
+      sessionStorage.setItem(progressKey, JSON.stringify({ phase, currentQ, answers }))
+    }
+  }, [quiz, progressKey, phase, currentQ, answers])
+
   if (!quiz) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-4" style={{ background: c.bg }}>
@@ -58,6 +81,12 @@ export default function Quiz() {
   function handleSelect(optionId: string) {
     if (animating) return
     setSelected(optionId)
+  }
+
+  function handleBack() {
+    if (currentQ === 0 || animating) return
+    setCurrentQ(q => q - 1)
+    setSelected(answers[quiz.questions[currentQ - 1].id] ?? null)
   }
 
   function handleNext() {
@@ -268,14 +297,12 @@ export default function Quiz() {
                 })}
               </div>
 
-              <button
-                onClick={handleNext}
-                disabled={!selected || animating}
-                className="w-full py-3.5 rounded-2xl text-sm font-semibold text-white transition-all duration-200 hover:opacity-90 active:scale-[0.98] disabled:opacity-40"
-                style={{ fontFamily: F, background: c.forest, color: c.bg, border: `1px solid ${c.forest}` }}
-              >
-                {currentQ < quiz.questions.length - 1 ? 'Next →' : 'See my result →'}
-              </button>
+              <div className="flex gap-3">
+                <button onClick={handleBack} disabled={currentQ === 0 || animating} className="rounded-2xl border px-4 py-3.5 text-sm font-semibold disabled:opacity-40" style={{ fontFamily: F, color: c.forest, borderColor: c.cardBorder, background: c.card }}>Back</button>
+                <button onClick={handleNext} disabled={!selected || animating} className="flex-1 rounded-2xl py-3.5 text-sm font-semibold transition-all duration-200 hover:opacity-90 active:scale-[0.98] disabled:opacity-40" style={{ fontFamily: F, background: c.forest, color: c.bg, border: `1px solid ${c.forest}` }}>
+                  {currentQ < quiz.questions.length - 1 ? 'Next →' : 'See my result →'}
+                </button>
+              </div>
             </div>
           )}
 

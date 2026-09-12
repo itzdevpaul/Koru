@@ -55,6 +55,7 @@ export default function Home() {
   const [checkInSaving, setCheckInSaving] = useState(false)
   const [checkInSharing, setCheckInSharing] = useState(false)
   const [checkInShareMsg, setCheckInShareMsg] = useState('')
+  const [checkInSavedMsg, setCheckInSavedMsg] = useState('')
   const [showFriendNudge, setShowFriendNudge] = useState(false)
   const [nudgeCopied, setNudgeCopied] = useState(false)
   const [showReflection, setShowReflection] = useState(false)
@@ -182,6 +183,8 @@ export default function Home() {
     setTodayCheckIn({ mood: checkInMood, energy: checkInEnergy, reflection: checkInReflection.trim(), prompt: todayPrompt })
     setEditingCheckIn(false)
     setCheckInSaving(false)
+    setCheckInSavedMsg(isNew ? 'Check-in saved.' : 'Check-in updated.')
+    window.setTimeout(() => setCheckInSavedMsg(''), 3000)
 
     // Show friend nudge only on first save of a meaningful session (once per day)
     const dismissed = sessionStorage.getItem('koru-friend-nudge-dismissed')
@@ -714,6 +717,7 @@ export default function Home() {
                       Cancel
                     </button>
                   )}
+                  {checkInSavedMsg && <p className="text-xs font-semibold" style={{ fontFamily: I, color: c.forest }} aria-live="polite">{checkInSavedMsg}</p>}
                 </div>
               </div>
             )}
