@@ -45,7 +45,6 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
         <BrowserRouter>
           <SubscriptionProvider>
           <IdleTimer />
-          <SupportButton />
           <WhatsAppPrompt />
           <OfflineStatus />
           <AccessibilityTools />
