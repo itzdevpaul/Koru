@@ -308,7 +308,7 @@ export default function Upgrade() {
         {/* Fine print */}
         <p className="text-center text-xs" style={{ fontFamily: I, color: c.muted, lineHeight: 1.7 }}>
           Billed monthly. Cancel any time by contacting{' '}
-          <a href="mailto:hello@koru.com.ng" style={{ color: c.sage }}>hello@koru.com.ng</a>.
+          <a href="mailto:support@koru.com.ng" style={{ color: c.sage }}>support@koru.com.ng</a>.
           Payments are processed securely via Squad.
         </p>
       </main>

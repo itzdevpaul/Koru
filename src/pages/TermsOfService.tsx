@@ -253,7 +253,7 @@ export default function TermsOfService() {
             >
               <p style={{ fontFamily: "'Inter', sans-serif", color: '#1B3B2B' }}>
                 <strong>Koru</strong><br />
-                Email: <a href="mailto:hello@koru.com.ng" className="underline hover:text-[#3a6b4a]">hello@koru.com.ng</a><br />
+                Email: <a href="mailto:support@koru.com.ng" className="underline hover:text-[#3a6b4a]">support@koru.com.ng</a><br />
                 Website: <a href="https://koru.com.ng" className="underline hover:text-[#3a6b4a]">koru.com.ng</a>
               </p>
             </div>
