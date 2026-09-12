@@ -257,6 +257,9 @@ export default function Profile() {
               </span>
             </div>
           )}
+          <p className="mt-2 text-xs" style={{ fontFamily: I, color: c.muted }}>
+            Streak freezes protect missed local calendar days automatically. You get 2 per month.
+          </p>
         </div>
 
         {/* Display Name */}
