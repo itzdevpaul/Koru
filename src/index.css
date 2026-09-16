@@ -24,6 +24,7 @@
 
 /* ── Base ── */
 html {
+  min-height: 100%;
   scroll-behavior: smooth;
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
@@ -162,6 +163,29 @@ body {
 }
 
 /* Keep fixed navigation and reading controls from covering page content. */
+:focus-visible {
+  outline: 3px solid #E07A5F;
+  outline-offset: 3px;
+}
+
+button, a, input, textarea, select {
+  touch-action: manipulation;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  filter: saturate(0.7);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
 @media (max-width: 767px) {
   main {
     padding-bottom: calc(7.5rem + env(safe-area-inset-bottom)) !important;
