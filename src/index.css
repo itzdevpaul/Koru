@@ -161,6 +161,13 @@ body {
   html { font-size: 15px; }
 }
 
+/* Keep fixed navigation and reading controls from covering page content. */
+@media (max-width: 767px) {
+  main {
+    padding-bottom: calc(7.5rem + env(safe-area-inset-bottom)) !important;
+  }
+}
+
 /* ── Tap target minimum ── */
 button,
 a,

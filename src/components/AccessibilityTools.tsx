@@ -24,7 +24,7 @@ export default function AccessibilityTools() {
 
   if (!ready) return null
 
-  return <div className="fixed bottom-20 left-4 z-40 md:bottom-4" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+  return <div className="fixed bottom-24 left-4 z-40 md:bottom-5" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
     {open && <div className="mb-2 w-56 rounded-2xl p-4 shadow-lg" style={{ background: c.card, border: `1px solid ${c.cardBorder}`, color: c.forest }}>
       <p className="text-sm font-bold">Reading preferences</p>
       <label className="mt-3 flex items-center justify-between gap-3 text-xs"><span>Larger text</span><input type="checkbox" checked={largeText} onChange={event => setLargeText(event.target.checked)} /></label>

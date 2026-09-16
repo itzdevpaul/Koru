@@ -49,7 +49,7 @@ export default function MobileNavigation() {
       </div>
     </div>}
     <p className="sr-only" aria-live="polite">Current page: {location.pathname.replace('/', '') || 'home'}</p>
-    <div data-mobile-nav className="fixed inset-x-3 bottom-3 z-40 flex items-center justify-around rounded-2xl px-2 py-2 shadow-xl md:hidden" style={{ background: c.card, border: `1px solid ${c.cardBorder}`, paddingBottom: 'calc(0.5rem + env(safe-area-inset-bottom))' }}>
+    <div data-mobile-nav className="fixed inset-x-3 bottom-3 z-40 flex items-center justify-around rounded-2xl px-2 py-2 shadow-xl backdrop-blur-xl md:hidden" style={{ background: c.card, border: `1px solid ${c.cardBorder}`, paddingBottom: 'calc(0.5rem + env(safe-area-inset-bottom))' }}>
       {items.map(item => <Link key={item.path} to={item.path} className="rounded-xl px-2 py-2 text-center text-[11px] font-semibold" style={{ color: location.pathname === item.path ? c.forest : c.muted }}>{item.label}</Link>)}
       <button onClick={() => setOpen(true)} aria-label="Search Koru" className="rounded-xl px-2 py-2 text-[11px] font-semibold" style={{ color: c.forest }}>Search</button>
     </div>
