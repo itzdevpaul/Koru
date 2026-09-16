@@ -11,6 +11,7 @@ import {
   FieldPath,
 } from 'firebase-admin/firestore'
 import { getMessaging } from 'firebase-admin/messaging'
+import { REFERRAL_REWARD_THRESHOLD } from '../src/config/product.js'
 
 async function getAuthenticatedUser(req: Request) {
   const header = req.headers.authorization
@@ -107,8 +108,8 @@ async function notifyInviter(inviterUid: string, referralCount: number, rewardGr
 
     // Create a notification document for the inviter
     const message = rewardGranted
-      ? "Your invite code was used! You've reached 10 referrals — 7 days of Pro unlocked! 🎉"
-      : `Your invite code was used! ${referralCount} of 10 referrals — keep inviting to unlock Pro.`
+      ? "Your invite code was used! You've reached ${REFERRAL_REWARD_THRESHOLD} referrals — 7 days of Pro unlocked! 🎉"
+      : `Your invite code was used! ${referralCount} of ${REFERRAL_REWARD_THRESHOLD} referrals — keep inviting to unlock Pro.`
     await firestore.collection(`users/${inviterUid}/notifications`).add({
       type: 'referral',
       title: 'Your invite code was used! 🎉',
@@ -130,8 +131,8 @@ async function notifyInviter(inviterUid: string, referralCount: number, rewardGr
           notification: {
             title: 'Your invite code was used! 🎉',
             body: rewardGranted
-              ? '10 referrals reached — 7 days of Pro unlocked!'
-              : `${referralCount} of 10 invites — keep going!`,
+              ? `${REFERRAL_REWARD_THRESHOLD} referrals reached — 7 days of Pro unlocked!`
+              : `${referralCount} of ${REFERRAL_REWARD_THRESHOLD} invites — keep going!`,
           },
           data: { url: '/profile' },
         })
@@ -291,7 +292,18 @@ app.post('/api/journal/insight', async (req, res) => {
   }
 })
 
-app.get('/api/diagnostics', (_req, res) => {
+app.get('/api/diagnostics', async (req, res) => {
+  try {
+    const decoded = await getAuthenticatedUser(req)
+    const adminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase()
+    if (!adminEmail || decoded.email?.toLowerCase() !== adminEmail) {
+      res.status(404).json({ error: 'Not found' })
+      return
+    }
+  } catch {
+    res.status(404).json({ error: 'Not found' })
+    return
+  }
   const firebase = process.env.FIREBASE_SERVICE_ACCOUNT?.trim() || ''
   const squad = process.env.SQUAD_SECRET_KEY?.trim() || ''
   res.json({

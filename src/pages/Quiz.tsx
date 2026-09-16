@@ -86,7 +86,7 @@ export default function Quiz() {
   function handleBack() {
     if (currentQ === 0 || animating) return
     setCurrentQ(q => q - 1)
-    setSelected(answers[quiz.questions[currentQ - 1].id] ?? null)
+    setSelected(answers[quiz!.questions[currentQ - 1].id] ?? null)
   }
 
   function handleNext() {
