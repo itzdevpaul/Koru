@@ -19,7 +19,7 @@ const searchable = [
 ]
 
 export default function MobileNavigation() {
-  const { c } = useTheme()
+  const { c, isDark } = useTheme()
   const location = useLocation()
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
@@ -49,9 +49,9 @@ export default function MobileNavigation() {
       </div>
     </div>}
     <p className="sr-only" aria-live="polite">Current page: {location.pathname.replace('/', '') || 'home'}</p>
-    <div data-mobile-nav className="fixed inset-x-3 bottom-3 z-40 flex items-center justify-around rounded-2xl px-2 py-2 shadow-xl backdrop-blur-xl md:hidden" style={{ background: c.card, border: `1px solid ${c.cardBorder}`, paddingBottom: 'calc(0.5rem + env(safe-area-inset-bottom))' }}>
-      {items.map(item => <Link key={item.path} to={item.path} className="rounded-xl px-2 py-2 text-center text-[11px] font-semibold" style={{ color: location.pathname === item.path ? c.forest : c.muted }}>{item.label}</Link>)}
-      <button onClick={() => setOpen(true)} aria-label="Search Koru" className="rounded-xl px-2 py-2 text-[11px] font-semibold" style={{ color: c.forest }}>Search</button>
-    </div>
+    <nav data-mobile-nav aria-label="Primary navigation" className="fixed inset-x-3 bottom-3 z-40 flex items-center justify-around rounded-2xl px-2 py-2 shadow-xl backdrop-blur-xl md:hidden" style={{ background: isDark ? 'rgba(20, 43, 31, 0.96)' : 'rgba(255, 255, 255, 0.96)', border: `1px solid ${c.cardBorder}`, paddingBottom: 'calc(0.5rem + env(safe-area-inset-bottom))' }}>
+      {items.map(item => <Link key={item.path} to={item.path} aria-current={location.pathname === item.path ? 'page' : undefined} className="rounded-xl px-2 py-2 text-center text-[11px] font-semibold transition-colors" style={{ color: location.pathname === item.path ? c.forest : c.muted, background: location.pathname === item.path ? c.surface : 'transparent' }}>{item.label}</Link>)}
+      <button onClick={() => setOpen(true)} aria-label="Search Koru" className="rounded-xl px-2 py-2 text-[11px] font-semibold transition-colors" style={{ color: c.forest, background: open ? c.surface : 'transparent' }}>Search</button>
+    </nav>
   </>
 }
