@@ -9,6 +9,8 @@
   "scripts": {
     "dev": "concurrently -n vite,api -c green,blue \"vite --host 0.0.0.0 --port 5000\" \"tsx watch server/start.ts\"",
     "build": "vite build",
+    "typecheck": "tsc --noEmit",
+    "check": "pnpm run typecheck && pnpm run build",
     "preview": "vite preview --host 0.0.0.0 --port 5000",
     "api": "tsx watch server/start.ts"
   },
