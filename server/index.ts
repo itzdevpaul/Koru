@@ -108,7 +108,7 @@ async function notifyInviter(inviterUid: string, referralCount: number, rewardGr
 
     // Create a notification document for the inviter
     const message = rewardGranted
-      ? "Your invite code was used! You've reached ${REFERRAL_REWARD_THRESHOLD} referrals — 7 days of Pro unlocked! 🎉"
+      ? `Your invite code was used! You've reached ${REFERRAL_REWARD_THRESHOLD} referrals — 7 days of Pro unlocked!`
       : `Your invite code was used! ${referralCount} of ${REFERRAL_REWARD_THRESHOLD} referrals — keep inviting to unlock Pro.`
     await firestore.collection(`users/${inviterUid}/notifications`).add({
       type: 'referral',
@@ -749,10 +749,19 @@ app.post('/api/referrals/ensure-code', async (req, res) => {
   try {
     const decoded = await getAuthenticatedUser(req)
     const firestore = getFirestore(getAdminApp())
-    const profileRef = firestore.doc(`users/${decoded.uid}/profile/main`)
+  const profileRef = firestore.doc(`users/${decoded.uid}/profile/main`)
+  const existingProfile = await profileRef.get()
+  const existingCode = safeInviteCode(existingProfile.data()?.inviteCode)
+  if (existingCode.length >= 6) {
+    const existingCodeRef = firestore.doc(`inviteCodes/${existingCode}`)
+    const existingCodeSnap = await existingCodeRef.get()
+    if (!existingCodeSnap.exists) await existingCodeRef.set({ uid: decoded.uid, createdAt: new Date(), repairedAt: new Date() })
+    res.json({ inviteCode: existingCode, referralCount: Number(existingProfile.data()?.referralCount ?? 0), referralRewardGranted: Boolean(existingProfile.data()?.referralRewardGranted), rewardDays: 7 })
+    return
+  }
 
-    for (let attempt = 0; attempt < 8; attempt += 1) {
-      const candidate = inviteCode()
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    const candidate = inviteCode()
       const codeRef = firestore.doc(`inviteCodes/${candidate}`)
       const result = await firestore.runTransaction(async transaction => {
         const [profileSnap, codeSnap] = await Promise.all([

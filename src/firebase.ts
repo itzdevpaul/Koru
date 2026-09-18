@@ -473,11 +473,18 @@ const API_BASE = '/api'
 async function authenticatedApi(path: string, body?: unknown): Promise<Response> {
   if (!auth.currentUser) throw new Error('You must be signed in.')
   const token = await auth.currentUser.getIdToken()
-  return fetch(`${API_BASE}${path}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-  })
+  const controller = new AbortController()
+  const timeout = window.setTimeout(() => controller.abort(), 12_000)
+  try {
+    return await fetch(`${API_BASE}${path}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+      signal: controller.signal,
+    })
+  } finally {
+    window.clearTimeout(timeout)
+  }
 }
 
 export interface JournalEntry {
@@ -498,15 +505,28 @@ export interface ReferralStatus {
 }
 
 export async function ensureInviteCode(): Promise<ReferralStatus> {
-  const response = await authenticatedApi('/referrals/ensure-code')
-  const data = await response.json() as Partial<ReferralStatus> & { error?: string }
-  if (!response.ok || !data.inviteCode) throw new Error(data.error ?? 'Invite code unavailable.')
-  return {
-    inviteCode: sanitizeInviteCode(data.inviteCode),
-    referralCount: Number(data.referralCount ?? 0),
-    referralRewardGranted: Boolean(data.referralRewardGranted),
-    rewardDays: Number(data.rewardDays ?? 7),
+  let lastError: Error | null = null
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      const response = await authenticatedApi('/referrals/ensure-code')
+      const raw = await response.text()
+      let data: Partial<ReferralStatus> & { error?: string } = {}
+      try { data = JSON.parse(raw) as typeof data } catch { data = {} }
+      if (!response.ok) throw new Error(data.error ?? `Invite service returned ${response.status}.`)
+      const inviteCode = sanitizeInviteCode(data.inviteCode ?? '')
+      if (inviteCode.length < 6) throw new Error('The invite service returned an invalid code. Please try again.')
+      return {
+        inviteCode,
+        referralCount: Number(data.referralCount ?? 0),
+        referralRewardGranted: Boolean(data.referralRewardGranted),
+        rewardDays: Number(data.rewardDays ?? 7),
+      }
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error('Invite code unavailable.')
+      if (attempt === 0) await new Promise(resolve => window.setTimeout(resolve, 450))
+    }
   }
+  throw lastError ?? new Error('Invite code unavailable.')
 }
 
 export async function claimInviteCode(code: string): Promise<{ ok: true; rewardGranted: boolean } | { error: string }> {
