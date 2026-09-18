@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useTheme } from '../context/ThemeContext'
+import { useAuth } from '../context/AuthContext'
 
 const items = [
   { label: 'Home', path: '/home' },
@@ -20,6 +21,7 @@ const searchable = [
 
 export default function MobileNavigation() {
   const { c, isDark } = useTheme()
+  const { user, loading } = useAuth()
   const location = useLocation()
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
@@ -37,7 +39,9 @@ export default function MobileNavigation() {
     window.localStorage.setItem('koru-recent-pages', JSON.stringify(next))
   }, [location.pathname])
 
-  if (location.pathname === '/' || location.pathname.startsWith('/sign') || location.pathname.startsWith('/onboarding')) return null
+  const privatePaths = ['/home', '/journal', '/roadmap', '/assistant', '/profile', '/search', '/quiz/', '/mood-insights', '/clarity-card', '/upgrade', '/payment/return', '/admin']
+  const isPrivateRoute = privatePaths.some(path => location.pathname === path || location.pathname.startsWith(path))
+  if (loading || !user || !isPrivateRoute) return null
   const results = searchable.filter(item => item.title.toLowerCase().includes(query.toLowerCase()))
   return <>
     {open && <div className="fixed inset-0 z-50 flex items-end bg-black/35 p-4" role="dialog" aria-modal="true" aria-label="Search Koru">
