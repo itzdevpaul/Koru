@@ -79,11 +79,11 @@ export default function WhatsAppPrompt() {
       aria-modal="true"
       aria-labelledby="whatsapp-prompt-title"
       className="fixed inset-0 z-50 flex items-center justify-center px-4"
-      style={{ background: 'rgba(14,22,18,0.48)', backdropFilter: 'blur(5px)' }}
+      style={{ background: 'rgba(14,22,18,0.20)', backdropFilter: 'blur(2px)' }}
     >
       <div
         className="w-full max-w-md rounded-3xl p-6 sm:p-8"
-        style={{ background: c.card, border: `1px solid ${c.cardBorder}`, boxShadow: '0 20px 70px rgba(27,59,43,0.2)' }}
+        style={{ background: c.card, border: `1px solid ${c.cardBorder}`, boxShadow: '0 18px 55px rgba(27,59,43,0.18)' }}
       >
         <div className="flex items-start justify-between gap-4">
           <div>

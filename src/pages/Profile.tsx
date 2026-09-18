@@ -63,6 +63,21 @@ export default function Profile() {
   const [notifications, setNotifications] = useState<AppNotification[]>([])
   const [notifLoading, setNotifLoading] = useState(true)
 
+  async function loadInviteStatus() {
+    setInviteLoading(true)
+    setInviteMsg('')
+    try {
+      const status = await ensureInviteCode()
+      setInviteCode(status.inviteCode)
+      setReferralCount(status.referralCount)
+      setReferralRewardGranted(status.referralRewardGranted)
+    } catch {
+      setInviteMsg('We could not generate your invite code right now. Your account is safe — try again.')
+    } finally {
+      setInviteLoading(false)
+    }
+  }
+
   useEffect(() => {
     if (!user) return
     Promise.all([getUserProfile(user.uid), getQuizResults(user.uid)]).then(
@@ -85,14 +100,7 @@ export default function Profile() {
         setLoading(false)
       },
     )
-    ensureInviteCode()
-      .then(status => {
-        setInviteCode(status.inviteCode)
-        setReferralCount(status.referralCount)
-        setReferralRewardGranted(status.referralRewardGranted)
-      })
-      .catch(() => setInviteMsg('Invite code is temporarily unavailable.'))
-      .finally(() => setInviteLoading(false))
+    void loadInviteStatus()
   }, [user])
 
   function toggleFocus(id: string) {
@@ -487,7 +495,7 @@ export default function Profile() {
                 Your permanent invite code
               </p>
               <p className="text-xs leading-relaxed" style={{ fontFamily: I, color: c.body }}>
-                {`Share your code — invite ${PRODUCT.referralRewardThreshold} friends who create accounts and unlock 7 days of Koru Pro. You&apos;ll be notified each time someone uses it.`}
+                {`Share your code — invite ${PRODUCT.referralRewardThreshold} friends who create accounts and unlock 7 days of Koru Pro. You'll be notified each time someone uses it.`}
               </p>
             </div>
             <span className="text-xl" aria-hidden="true">🎁</span>
@@ -530,7 +538,7 @@ export default function Profile() {
                   Share invite
                 </button>
               </div>
-              {inviteMsg && <p className="text-xs mt-2" style={{ fontFamily: I, color: c.body }}>{inviteMsg}</p>}
+              {inviteMsg && <div className="mt-2 flex items-center justify-between gap-3"><p className="text-xs" style={{ fontFamily: I, color: c.body }}>{inviteMsg}</p><button type="button" onClick={() => void loadInviteStatus()} className="shrink-0 rounded-lg px-2.5 py-1.5 text-xs font-semibold" style={{ color: c.forest, background: c.surface }}>Try again</button></div>}
             </>
           )}
         </section>
