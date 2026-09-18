@@ -31,6 +31,7 @@ html {
 }
 
 body {
+  min-width: 320px;
   background-color: #FBF9F5;
   color: #1B3B2B;
   font-family: 'Inter', sans-serif;
@@ -163,10 +164,6 @@ body {
 }
 
 /* Keep fixed navigation and reading controls from covering page content. */
-:focus-visible {
-  outline: 3px solid #E07A5F;
-  outline-offset: 3px;
-}
 
 button, a, input, textarea, select {
   touch-action: manipulation;
@@ -197,6 +194,17 @@ button,
 a,
 input[type="submit"] {
   min-height: 44px;
+}
+
+input,
+textarea,
+select {
+  font-size: 16px;
+}
+
+::selection {
+  background: #C8DCC9;
+  color: #1B3B2B;
 }
 
 input[type="email"] {

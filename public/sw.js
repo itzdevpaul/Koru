@@ -1,4 +1,4 @@
-const CACHE_NAME = 'koru-shell-v1'
+const CACHE_NAME = 'koru-shell-v2'
 const OFFLINE_URL = '/offline.html'
 
 self.addEventListener('push', (event) => {

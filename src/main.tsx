@@ -31,6 +31,7 @@ import WhatsAppPrompt from './components/WhatsAppPrompt'
 import OfflineStatus from './components/OfflineStatus'
 import AccessibilityTools from './components/AccessibilityTools'
 import MobileNavigation from './components/MobileNavigation'
+import AppErrorBoundary from './components/AppErrorBoundary'
 import './index.css'
 
 if ('serviceWorker' in navigator && import.meta.env.PROD) {
@@ -45,6 +46,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <ThemeProvider>
       <AuthProvider>
+        <AppErrorBoundary>
         <BrowserRouter>
           <SubscriptionProvider>
           <IdleTimer />
@@ -84,6 +86,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
           </Routes>
           </SubscriptionProvider>
         </BrowserRouter>
+        </AppErrorBoundary>
       </AuthProvider>
     </ThemeProvider>
   </React.StrictMode>,
